@@ -1,7 +1,7 @@
 # Phase 1A: planets orbiting the sun
 
 Date: 2026-09-18. Status: design approved in conversation, awaiting written review.
-Source of requirements: `goal.md`. Research: `research/`.
+Source of requirements: `docs/goal.md`. Research: `docs/research/`.
 
 ## 1. Scope
 
@@ -18,17 +18,19 @@ asteroids.
 ## 2. Conventions
 
 - One exported function per file, and the file is named exactly after that function. Names
-  are one word, two at most. Files under `types/`, `constants/`, `sources/jpl/planets.ts`,
-  `sources/jpl/types.ts`, `sources/sun.ts`, and `scene/appearance.ts` hold data or types and
-  are the only exceptions.
+  are one word, two at most. Files under `types/`, `constants/`, `data/jpl/planets.ts`,
+  `data/jpl/types.ts`, `data/solar.ts`, and `scene/appearance.ts` hold data or types and
+  are the only exceptions. `utils/` may group files in subfolders by domain.
 - No code comments. The one permitted marker is a thrown `Error("TODO(human)")` in a stub
   body, which is removed when the function is implemented.
 - Functional style. Every function takes plain inputs and returns a value. The exceptions
-  are the three.js mutation sites named in section 8 and the single `let` in `main.ts`.
-- The simulator, types, state, utils, and sources never import three.js. A test enforces
+  are the three.js mutation sites named in section 8. No variable is reassigned in 1A;
+  the frame loop carries its state by closure. 1B adds one shared slot in `main.ts` when
+  hot reload needs to hand state in from outside.
+- The simulator, types, state, utils, and data never import three.js. A test enforces
   this.
 - Every number that could be tuned lives in `src/constants/`, never inline.
-- Angles are radians everywhere except inside `sources/jpl/`, where the table is kept in
+- Angles are radians everywhere except inside `data/jpl/`, where the table is kept in
   the degrees JPL publishes. Distances are AU. Time is a Julian date number.
 - Commits are made by the owner, not the assistant.
 
@@ -46,16 +48,18 @@ src/
   types/
     appearance.ts  body.ts  elements.ts  handles.ts  located.ts  orbit.ts  state.ts  vec3.ts
   utils/
-    add.ts  julianDate.ts  radians.ts  wrap.ts
-  sources/
-    sun.ts                the star body constant
+    add.ts  radians.ts  wrap.ts
+    date/
+      julian.ts           Date or ISO string to Julian date
+  data/
+    solar.ts              the solar system body list: the sun plus the JPL planets
     jpl/
       types.ts            JplPlanet, the row as JPL publishes it
       planets.ts          Table 2a and 2b constants for the eight planets
       elementsAt.ts       the JPL evolution model
       toPlanet.ts         JplPlanet to Body
   simulator/
-    solveKepler.ts  position.ts  propagate.ts  simulate.ts
+    kepler.ts  position.ts  propagate.ts  simulate.ts
   state/
     initial.ts  tick.ts
   scene/
@@ -67,14 +71,14 @@ scripts/
 test/
   fixtures/horizons.json
   boundary.test.ts
-  <mirrors src/>          e.g. test/simulator/solveKepler.test.ts
+  <mirrors src/>          e.g. test/simulator/kepler.test.ts
 docs/
   definitions.md
   superpowers/specs/
 ```
 
 Dependency direction: `main` imports everything. `scene` imports `types`, `constants`,
-`utils`. `simulator` imports `types`, `utils`. `sources` imports `types`, `utils`,
+`utils`. `simulator` imports `types`, `utils`. `data` imports `types`, `utils`,
 `constants/astronomy`. `state` imports `types`, `constants/time`. Nothing imports `main`.
 
 ## 4. Types
@@ -122,7 +126,7 @@ The annotations above are for this document only; the source files carry none.
 a function, not an object with methods: no `this`, no mutation. It is the one shape every
 source reduces to, and the simulator never learns which source produced it.
 
-## 5. Sources
+## 5. Data
 
 ### 5.1 JPL planets
 
@@ -148,16 +152,18 @@ past Table 1's 2050 limit.
 JPL's Earth row is the Earth–Moon barycentre, under 5,000 km from Earth's centre. The
 moons phase will revisit this.
 
-### 5.2 Sun
+### 5.2 Solar system
 
-`sources/sun.ts` exports the constant `{ kind: "star", id: "sun", name: "Sun" }`.
+`data/solar.ts` exports `solar`, the body list for our system: the sun,
+`{ kind: "star", id: "sun", name: "Sun" }`, followed by `planets.map(toPlanet)`. Another
+system later is another file with the same shape.
 
 ## 6. Simulator
 
-- `solveKepler(meanAnomaly, eccentricity)` wraps M to [−π, π], starts from
+- `kepler(meanAnomaly, eccentricity)` wraps M to [−π, π], starts from
   E₀ = M + e·sin M, iterates Newton–Raphson ΔE = (M − (E − e·sin E)) / (1 − e·cos E) until
   |ΔE| < 1e-12 or fifty iterations, and returns E.
-- `position(elements)` calls `solveKepler`, computes orbital-plane coordinates
+- `position(elements)` calls `kepler`, computes orbital-plane coordinates
   x′ = a(cos E − e), y′ = a√(1 − e²)·sin E, and rotates by Ω, i, ω into the parent's
   ecliptic frame:
 
@@ -179,7 +185,7 @@ moons phase will revisit this.
 ### 6.1 Utilities
 
 - `add(a, b)`: component-wise `Vec3` sum.
-- `julianDate(value)`: `Date` or ISO string to Julian date, `ms / 86400000 + 2440587.5`.
+- `julian(value)`: `Date` or ISO string to Julian date, `ms / 86400000 + 2440587.5`.
   UTC is treated as ephemeris time; the difference is about a minute and moves Mercury by
   a few hundred kilometres.
 - `radians(degrees)`.
@@ -187,7 +193,7 @@ moons phase will revisit this.
 
 ## 7. State
 
-`initial(now)` returns `{ jd: julianDate(START_DATE ?? now), daysPerSecond: DAYS_PER_SECOND }`.
+`initial(now)` returns `{ jd: julian(START_DATE ?? now), daysPerSecond: DAYS_PER_SECOND }`.
 `tick(state, elapsedMs)` returns a new state with `jd` advanced by
 `daysPerSecond × elapsedMs / 1000`. These are the first of the transition functions that
 agent tools will later be.
@@ -234,15 +240,15 @@ viewport with no margin on a black body, so nothing flashes before the first fra
 ## 9. Startup and loop
 
 `main.ts`, in order: find the canvas or throw; build renderer, scene, camera, controls;
-build the body list as the sun plus `planets.map(toPlanet)`; build a mesh per body via
-`createStar` or `createPlanet` and add each to the scene; assemble `Handles`; register
-`() => resize(handles)` on the window's resize event and call it once; set
-`state = initial(new Date())`; start the frame.
+import `solar` as the body list; build a mesh per body via `createStar` or `createPlanet`
+and add each to the scene; assemble `Handles`; register `() => resize(handles)` on the
+window's resize event and call it once; start the first frame with `initial(new Date())`.
 
-Each frame, given the animation timestamp: elapsed = timestamp − previous, or 0 on the
-first frame;
-`state = tick(state, elapsed)`; `update(handles, simulate(bodies, state.jd))`;
-`controls.update()`; `renderer.render(scene, camera)`; request the next frame.
+The loop carries state by closure: a function of `(state, previous)` returns the frame
+callback, which computes elapsed = timestamp − previous (0 on the first frame), derives
+`next = tick(state, elapsed)`, runs `update(handles, simulate(solar, next.jd))`,
+`controls.update()`, and `renderer.render(scene, camera)`, then requests the next frame
+with `(next, timestamp)`. Nothing is reassigned.
 
 Hot reload: Vite's default full-page reload on edit. State-preserving reload via
 `import.meta.hot` is the first item of 1B.
@@ -251,7 +257,7 @@ Hot reload: Vite's default full-page reload on edit. State-preserving reload via
 
 Three cases, all thrown at startup with a plain message: canvas element missing, WebGL
 unavailable (three.js throws and it propagates), and a body id with no appearance entry.
-There are no runtime network calls, so nothing is retried or degraded. `solveKepler` has
+There are no runtime network calls, so nothing is retried or degraded. `kepler` has
 an iteration cap and the tests show it never reaches it.
 
 ## 11. Testing
@@ -300,7 +306,7 @@ formula error produces errors thousands of times larger and cannot hide inside i
 - `test/simulator/propagate.test.ts` (validation): for every planet and sample, the
   distance between `propagate(body, jd)` and the Horizons vector is under `toleranceKm`,
   and the measured error in km is printed.
-- `solveKepler`: residual M − (E − e·sin E) below 1e-12 over a grid of M in [−π, π] and e
+- `kepler`: residual M − (E − e·sin E) below 1e-12 over a grid of M in [−π, π] and e
   in [0, 0.99]; e = 0 gives E = M; M = 0 gives E = 0.
 - `position`: circular orbit at zero inclination has radius a at every M; inclination π/2
   puts a quarter orbit entirely in z; non-zero Ω and ω each rotate a known point to a
@@ -310,35 +316,43 @@ formula error produces errors thousands of times larger and cannot hide inside i
 - `toPlanet`: kind, id, parent, and that `elementsAt(J2000)` matches `elementsAt(row, J2000)`.
 - `simulate`: the sun is at the origin; a planet equals `propagate`; a synthetic moon around
   a synthetic planet lands at parent plus offset; an unknown parent throws.
-- `julianDate`: J2000 noon is 2451545.0; the Unix epoch is 2440587.5.
+- `julian`: J2000 noon is 2451545.0; the Unix epoch is 2440587.5.
 - `tick`, `initial`, `toScene`, `add`, `wrap`, `radians`: direct.
 - Scene shape tests: `createPlanet` returns a mesh with a `MeshStandardMaterial` of the
   given colour and a radius derived from the appearance; `createStar` returns a mesh with a
   `MeshBasicMaterial` and a `PointLight` child; `createCamera` and `createScene` carry the
   constants; `update` lands each mesh at `toScene` of its position.
-- `boundary.test.ts`: reads every file under `simulator/`, `state/`, `utils/`, `sources/`,
+- `boundary.test.ts`: reads every file under `simulator/`, `state/`, `utils/`, `data/`,
   and `types/` except `handles.ts`, and fails if any imports from `three`.
 
 ## 12. Teaching split
 
-The owner writes these six, each shipped as a file with the signature and a body of
-`throw new Error("TODO(human)")`, with its test already red:
+**Step one is the owner's.** Before any of the layout exists, the owner writes the first
+end-to-end slice in `main.ts` however they like: renderer, scene, camera, a lit sun, an
+Earth mesh, and a frame loop, with Earth's position a stub circle at 1 AU driven by time.
+The assistant guides in chat and answers three.js questions but writes none of it. It is
+done when Earth visibly orbits a lit sun.
+
+**Step two is the extraction.** The slice is refactored together into the layout in
+section 3, one function per file, which is the lesson in why the layout is shaped as it
+is. The stub circle is replaced by `simulate` once the simulator lands.
+
+**Then the marked pieces.** The owner writes these three, each shipped as a file with the
+signature and a body of `throw new Error("TODO(human)")`, with its test already red:
 
 | Function | What it teaches |
 |---|---|
-| `solveKepler` | Newton–Raphson on Kepler's equation, the heart of the simulator |
+| `kepler` | Newton–Raphson on Kepler's equation, the heart of the simulator |
 | `tick` | a pure state transition, the pattern every tool will follow |
-| `createCamera` | projection parameters and why near and far matter in AU |
-| `createPlanet` | geometry, material, mesh: the core three.js mental model |
 | `toScene` | the frame change from ecliptic-north-up to y-up |
-| the frame loop in `main.ts` | `requestAnimationFrame`, elapsed time, the render call |
 
-The assistant writes the rest and explains each three.js piece as it lands: renderer,
-controls, star and light, `update`, `resize`. Scaffolding shrinks in 1B.
+`createCamera`, `createPlanet`, and the loop are the owner's from step one. The assistant
+writes the rest and explains each three.js piece as it lands: controls, `update`,
+`resize`, and whatever the extraction reshapes. Scaffolding shrinks in 1B.
 
 ## 13. Seams
 
-- 1B: state-preserving hot reload first, then `sources/sbdb/` with a bake script, a
+- 1B: state-preserving hot reload first, then `data/sbdb/` with a bake script, a
   `toAsteroid` transformer whose `elementsAt` advances M₀ by mean motion from `GAUSSIAN_K`,
   `createAsteroids` returning one `Points` cloud, a `Float32Array` builder over
   `propagate`, and the per-kind appearance fallback.
