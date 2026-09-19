@@ -4,16 +4,34 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Astragent</title>
+  <title>ASTRAGENT</title>
   <style>
     body {
       margin: 0;
+      //font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    #info {
+      color: white;
+      padding: 4px;
+      background-color: grey;
+    }
+
+    #distance-meter {
+      bottom: 30px;
     }
   </style>
 </head>
 
 <body>
-  <script type="module" src="/src/main.ts"></script>
+  <div id="info">
+    <p>ASTRAGENT</p>
+    <input type="range" id="distance" name="distance" min="2" max="15" value="3" />
+    <label id="distance-meter" for="distance">Distance</label>
+
+    <div>
+      <script type="module" src="/src/main.ts"></script>
 </body>
 
 </html>
