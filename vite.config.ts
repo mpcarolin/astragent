@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   server: {
@@ -8,5 +8,9 @@ export default defineConfig({
     target: "es2022",
     outDir: "dist",
     sourcemap: true,
+  },
+  test: {
+    environment: "node",
+    include: ["test/**/*.test.ts"],
   },
 });

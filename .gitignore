@@ -2,6 +2,9 @@ node_modules/
 dist/
 *.tsbuildinfo
 
+docs/math/.venv/
+.ipynb_checkpoints/
+
 .env
 .env.*
 !.env.example
