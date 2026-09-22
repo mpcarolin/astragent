@@ -79,7 +79,7 @@ src/
     appearance.ts         colour and physical radius per body id
     createRenderer.ts  createCamera.ts  createControls.ts  createScene.ts
     backdrop.ts
-    createStar.ts  createPlanet.ts  createLights.ts  toScene.ts  update.ts  resize.ts
+    createStar.ts  createPlanet.ts  createAmbient.ts  toScene.ts  update.ts  resize.ts
     createOrbitLines.ts
 scripts/
   horizons.ts             standalone Node script, writes the fixtures
@@ -287,8 +287,33 @@ mutation sites in the whole program are: `update`, `resize`, and the loop in `ma
   projection, not in the depth test.
 - `createCamera()` (revised 2026-09-21): `PerspectiveCamera` built from
   `constants/camera.ts` — FOV 50, NEAR 0.01, `FAR = MAX_DISTANCE + SCENE_RADIUS`, and
-  START_POSITION in scene coordinates (AU, y-up) above the ecliptic, framing Neptune's
-  orbit. Two corrections landed here together.
+  START_POSITION in scene coordinates (AU, y-up) above the ecliptic. Two corrections landed
+  here together.
+
+  Revised again 2026-09-22: START_POSITION moved from `{ x: 0, y: 1, z: 150 }` to
+  `{ x: 0, y: 150, z: 0 }`, typed `TVec3`, so the scene opens
+  looking straight down on the sun instead of nearly edge-on, and the orbits read as nested
+  rings rather than overlapping lines. The distance is unchanged. An exact +Y start is
+  safe: `Object3D.lookAt` handles the degenerate up-vector case, and `OrbitControls` calls
+  `Spherical.makeSafe()` every update, which clamps the polar angle to [1e-6, π − 1e-6] —
+  a 1.5e-4 unit nudge at this radius, so no hand-placed tilt is needed to keep the controls
+  usable. Simulating the control path's rotate step confirms it: successive drags off the
+  pole hold the radius at exactly 150 and move continuously, and a drag back through the
+  pole stops at the clamp rather than flipping.
+
+  The same revision struck the claim that START_POSITION frames Neptune's orbit, which was
+  false and had never been checked. At FOV 50 the vertical half-extent visible at distance
+  d is d·tan 25° = 0.4663 d, so 150 frames a radius of 69.9 — out to Jupiter at 52.0, and
+  cutting Saturn at 95.4. The overhead view makes this visible for the first time, because
+  edge-on the outer rings ran off the sides rather than obviously overflowing. The start
+  distance stays 150: it frames the inner system, which is where the planets are legible,
+  and the outer orbits are reachable by zooming.
+
+  Recorded as a constraint rather than fixed, because it bounds any future framing work:
+  Uranus and Neptune cannot be framed at all at this FOV. They need distances of 411.6 and
+  644.9 against `MAX_DISTANCE` 400, so the camera cannot legally reach a vantage that
+  contains them. Whoever wants a whole-system view must raise `MAX_DISTANCE`, widen FOV, or
+  both — and `FAR` follows `MAX_DISTANCE` automatically, so only the framing needs thought.
 
   First, `constants/camera.ts` did not exist. The four values were inline literals in
   `createCamera.ts`, against both section 2's rule that every tunable lives in `constants/`
@@ -315,11 +340,45 @@ mutation sites in the whole program are: `update`, `resize`, and the loop in `ma
   using `constants/light.ts`. Initial DECAY is 0 so every planet reads lit with a correct
   day and night side; realistic 1/d² falloff is DECAY 2. The star's rendered radius is the
   constant, not the physical radius scaled, because the scaled sun would swallow Mercury.
-- `createLights()` (revised 2026-09-21): pure black night sides read as visually broken
-  rather than physically correct, so a single `AmbientLight` from `constants/light.ts`
-  (`AMBIENT_COLOR`, `AMBIENT_INTENSITY`) sits alongside the star's `PointLight`, low enough
-  to keep day/night contrast but not so low the unlit hemisphere reads as void. This
-  replaces the "no ambient light" rule below.
+
+  STAR_RADIUS validated and corrected 2026-09-22. The reasoning above holds, but the value
+  did not. Under the planets' own rule the sun is 695 700 km / KM_PER_AU × RADIUS_SCALE =
+  4.65 scene units, and Mercury's perihelion is 0.307 AU × DISTANCE_SCALE = 3.075, so a
+  consistently scaled sun does swallow Mercury's orbit and its drawn line. But the chosen
+  0.3 overcorrected past the point of sense: Jupiter renders at 0.467, so the sun came out
+  smaller than its largest planet where the true ratio is 9.95 : 1, and read as one more
+  ball rather than the centre of the system. STAR_RADIUS is now 1.0 — 2.1× Jupiter, 23×
+  Earth, and 32% of Mercury's perihelion, so the sun dominates without touching the inner
+  orbit. This is a deliberate understatement, not a derivation: the true ratio cannot be
+  kept while RADIUS_SCALE and DISTANCE_SCALE differ by 100×, and the sun is the one body
+  where that exaggeration runs out of room. The sun's real `radiusKm` in `appearance.ts`
+  is therefore unread by `createStar`, which is intended rather than an oversight.
+- `createAmbient()` (renamed from `createLights`, revised 2026-09-22): pure black night
+  sides read as visually broken rather than physically correct, so a single `AmbientLight`
+  from `constants/light.ts` (`AMBIENT_COLOR`, `AMBIENT_INTENSITY`) sits alongside the
+  star's `PointLight`, low enough to keep day/night contrast but not so low the unlit
+  hemisphere reads as void. This replaces the "no ambient light" rule below.
+
+  The function returns only the ambient light, because the sun's light belongs to the sun.
+  `createLights` had been returning a second `PointLight` at the world origin alongside the
+  one `createStar` already attaches as a child of the star mesh — two lights where the
+  sentence above promises one, so the code had drifted from this entry rather than the
+  entry being wrong. The duplicate is gone and the star keeps its own light, which is the
+  better home: the light is a child at the mesh's local origin, so it is wherever the star
+  is and follows it if the star ever moves off the origin.
+
+  The two were never equivalent, which is worth recording because it makes the removal
+  safe rather than merely tidy. `createStar` passes `DECAY` explicitly, so its light has
+  decay 0 and no falloff; the origin light took `PointLight`'s default decay of 2 and fell
+  off as 1/d². Against the decay-0 light it contributed 6.3% of the total at Mercury, 1.0%
+  at Earth, 0.4% at Mars and under 0.05% from Jupiter outward — a faint inner-system
+  brightening, not a structural light. Verified after removal: Earth still renders a sharp
+  crescent with the lit limb toward the sun and a blue, non-void night side.
+
+  Naming: a function returning one ambient light should not be named for a plural it no
+  longer provides, hence the rename, which also brought the file in line with section 2 —
+  it had been using a namespace `import * as THREE`, an arrow-function export, and no
+  `import type` group.
 - `createPlanet(body, appearance)`: `Mesh` of `SphereGeometry` and `MeshStandardMaterial`
   with the appearance colour, roughness 1, metalness 0. Radius is
   `radiusKm / KM_PER_AU × RADIUS_SCALE`, linear. If no constant keeps both Mercury visible
@@ -352,7 +411,7 @@ mutation sites in the whole program are: `update`, `resize`, and the loop in `ma
 - `resize(handles)`: sets renderer size and camera aspect, updates the projection matrix.
 
 The night side of a planet is dim, not black: a low `AmbientLight` prevents pure void
-(see `createLights` above).
+(see `createAmbient` above).
 
 The page: `index.html` keeps the `#scene` canvas; a small stylesheet makes it fill the
 viewport with no margin on a black body, so nothing flashes before the first frame.

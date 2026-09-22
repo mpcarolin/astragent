@@ -8,10 +8,10 @@ import { EBodyKind } from "../types/body";
 import { Scene } from "three";
 import { appearance } from "./appearance";
 import { backdrop } from "./backdrop";
-import { createStar } from "./createStar";
-import { createLights } from "./createLights";
+import { createAmbient } from "./createAmbient";
 import { createOrbitLines } from "./createOrbitLines";
 import { createPlanet } from "./createPlanet";
+import { createStar } from "./createStar";
 
 export function createScene(
   solar: readonly TBody[],
@@ -37,9 +37,7 @@ export function createScene(
     scene.add(line);
   });
 
-  const { sunlight, ambient } = createLights();
-  scene.add(sunlight);
-  scene.add(ambient);
+  scene.add(createAmbient());
 
   return { scene, bodies };
 }
