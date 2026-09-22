@@ -21,14 +21,16 @@ asteroids.
   are one word, two at most. Files under `types/`, `constants/`, `data/jpl/planets.ts`,
   `data/jpl/types.ts`, `data/solar.ts`, and `scene/appearance.ts` hold data or types and
   are the only exceptions. `utils/` may group files in subfolders by domain.
-- No code comments. The one permitted marker is a thrown `Error("TODO(human)")` in a stub
-  body, which is removed when the function is implemented.
+- No code comments in code the assistant writes. The one permitted marker is a thrown
+  `Error("TODO(human)")` in a stub body, which is removed when the function is implemented.
+  This doesn't bind code the owner writes themselves.
+- Tests are colocated: `<filename>.test.ts` next to the file it tests, same folder. `test/`
+  holds only `fixtures/`.
 - Functional style. Every function takes plain inputs and returns a value. The exceptions
   are the three.js mutation sites named in section 8. No variable is reassigned in 1A;
   the frame loop carries its state by closure. 1B adds one shared slot in `main.ts` when
   hot reload needs to hand state in from outside.
-- The simulator, types, state, utils, and data never import three.js. A test enforces
-  this.
+- The simulator, types, state, utils, and data never import three.js.
 - Every number that could be tuned lives in `src/constants/`, never inline.
 - Angles are radians everywhere except inside `data/jpl/`, where the table is kept in
   the degrees JPL publishes. Distances are AU. Time is a Julian date number.
@@ -70,8 +72,6 @@ scripts/
   horizons.ts             standalone Node script, writes the fixtures
 test/
   fixtures/horizons.json
-  boundary.test.ts
-  <mirrors src/>          e.g. test/simulator/kepler.test.ts
 docs/
   definitions.md
   superpowers/specs/
@@ -289,8 +289,10 @@ an iteration cap and the tests show it never reaches it.
 ### 11.2 Runner
 
 Vitest, configured in the `test` block of `vite.config.ts`, environment `node`, including
-`test/**/*.test.ts`. `tsconfig.json` `include` gains `test` and `scripts`. Scripts:
-`"test": "vitest run"`, `"fixtures": "node scripts/horizons.ts"`.
+`src/**/*.test.ts`. Tests are colocated with the file they test, named `<filename>.test.ts`,
+in the same folder — not mirrored under `test/`. `test/` holds only `fixtures/`.
+`tsconfig.json` `include` gains `scripts`. Scripts: `"test": "vitest run"`,
+`"fixtures": "node scripts/horizons.ts"`.
 
 ### 11.3 Fixtures
 
@@ -309,7 +311,7 @@ formula error produces errors thousands of times larger and cannot hide inside i
 
 ### 11.4 Tests
 
-- `test/simulator/propagate.test.ts` (validation): for every planet and sample, the
+- `src/simulator/propagate.test.ts` (validation): for every planet and sample, the
   distance between `propagate(body, jd)` and the Horizons vector is under `toleranceKm`,
   and the measured error in km is printed.
 - `kepler`: residual M − (E − e·sin E) below 1e-12 over a grid of M in [−π, π] and e
@@ -328,8 +330,6 @@ formula error produces errors thousands of times larger and cannot hide inside i
   given colour and a radius derived from the appearance; `createStar` returns a mesh with a
   `MeshBasicMaterial` and a `PointLight` child; `createCamera` and `createScene` carry the
   constants; `update` lands each mesh at `toScene` of its position.
-- `boundary.test.ts`: reads every file under `simulator/`, `state/`, `utils/`, `data/`,
-  and `types/` except `handles.ts`, and fails if any imports from `three`.
 
 ## 12. Teaching split
 

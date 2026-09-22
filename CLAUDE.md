@@ -14,11 +14,11 @@ Research: `docs/research/`. Terms: `docs/definitions.md`.
 - One exported function per file, file named exactly after it, two words at most.
   `types/`, `constants/`, `data/jpl/planets.ts`, `data/jpl/types.ts`, `data/solar.ts`, and
   `scene/appearance.ts` hold data or types and are the only exceptions.
-- No comments. The one marker allowed is a stub body of `throw new Error("TODO(human)")`.
+- No comments in code I write. The one marker allowed in my code is a stub body of
+  `throw new Error("TODO(human)")`. This doesn't bind code the owner writes themselves.
 - Functional: plain inputs in, value out. The only mutation sites are `scene/update.ts`,
   `scene/resize.ts`, and the frame loop in `main.ts`.
 - three.js is imported only under `scene/` and in `types/handles.ts` (type-only).
-  `test/boundary.test.ts` enforces this; keep it green.
 - Units: AU, radians, Julian date numbers. Degrees exist only inside `data/jpl/`.
 - Every tunable number lives in `src/constants/`, never inline.
 - A JPL or other external shape never leaves `data/`. Transform it to the generic `Body`.
@@ -32,6 +32,8 @@ Research: `docs/research/`. Terms: `docs/definitions.md`.
 
 ## Tests
 
+- Colocated: `<filename>.test.ts` next to the file it tests, same folder. `test/` holds
+  only `fixtures/`.
 - No mocks, no `vi.fn`, no snapshots. Expected values come from Horizons fixtures, a
   defining property, a hand-derived case, or a textbook constant.
 - Written first and watched red. Before calling a phase done, run the mutation pass:
