@@ -3,10 +3,28 @@ import { describe, expect, it } from "vitest";
 import type { TBody } from "../types/body";
 import type { TKeplerianElements } from "../types/elements";
 
-import { J2000 } from "../constants/astronomy";
+import horizons from "../../test/fixtures/horizons.json" with { type: "json" };
+import { J2000, KM_PER_AU } from "../constants/astronomy";
 import { solar } from "../data/solar";
 import { position } from "./position";
 import { propagate } from "./propagate";
+
+type THorizonsSample = {
+  readonly jd: number;
+  readonly x: number;
+  readonly y: number;
+  readonly z: number;
+};
+
+type THorizonsEntry = {
+  readonly horizons: string;
+  readonly toleranceKm: number;
+  readonly samples: readonly THorizonsSample[];
+};
+
+type THorizonsFixture = Record<string, THorizonsEntry>;
+
+const fixture: THorizonsFixture = horizons;
 
 const circular = (over: Partial<TKeplerianElements> = {}): TKeplerianElements => ({
   semiMajorAxis: 1,
@@ -84,6 +102,20 @@ describe("propagate", () => {
       expect(r).toBeLessThan(axis * (1 + 0.3));
     }
   });
+
+  for (const [id, entry] of Object.entries(fixture)) {
+    it(`matches the Horizons vectors for ${id}`, () => {
+      const body = solar.find((candidate) => candidate.id === id);
+      if (!body) throw new Error(`no ${id}`);
+      for (const sample of entry.samples) {
+        const p = propagate(body, sample.jd);
+        const errorKm =
+          Math.hypot(p.x - sample.x, p.y - sample.y, p.z - sample.z) * KM_PER_AU;
+        console.log(`${id} jd ${sample.jd} error ${errorKm.toFixed(0)} km`);
+        expect(errorKm).toBeLessThan(entry.toleranceKm);
+      }
+    });
+  }
 
   it("keeps every planet close to the ecliptic plane", () => {
     for (const body of solar) {

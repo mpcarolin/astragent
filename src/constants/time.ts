@@ -1,4 +1,4 @@
-export const DAYS_PER_SECOND = 5;
+export const DAYS_PER_SECOND = 2;
 export const START_DATE: string | null = null;
 export const MS_PER_SECOND = 1000;
 export const MS_PER_DAY = 86_400_000;

@@ -46,6 +46,7 @@ src/
     camera.ts             FOV, NEAR, FAR, START_POSITION
     light.ts              INTENSITY, DECAY, COLOR
     scale.ts              DISTANCE_SCALE, RADIUS_SCALE, STAR_RADIUS
+    space.ts              backdrop colours, falloff, texture size
     time.ts               DAYS_PER_SECOND, START_DATE (ISO string, or null for now)
   types/
     appearance.ts  body.ts  elements.ts  handles.ts  located.ts  orbit.ts  state.ts  vec3.ts
@@ -67,6 +68,7 @@ src/
   scene/
     appearance.ts         colour and physical radius per body id
     createRenderer.ts  createCamera.ts  createControls.ts  createScene.ts
+    backdrop.ts
     createStar.ts  createPlanet.ts  createLights.ts  toScene.ts  update.ts  resize.ts
 scripts/
   horizons.ts             standalone Node script, writes the fixtures
@@ -206,7 +208,26 @@ mutation sites in the whole program are: `update`, `resize`, and the loop in `ma
 
 - `createRenderer(canvas)`: `WebGLRenderer` on the `#scene` canvas, antialias on, pixel
   ratio capped at 2, sized to the window. No logarithmic depth buffer.
-- `createScene()`: `Scene` with background set to black.
+- `createScene()` (revised 2026-09-21): `Scene` whose `background` is the texture from
+  `backdrop()`. A flat black background gave the planets nothing to sit against. The scene
+  holds no backdrop geometry. This replaces the "background set to black" rule.
+- `backdrop()` (added 2026-09-21): a `DataTexture` of `BACKDROP_WIDTH` × `BACKDROP_HEIGHT`
+  on `EquirectangularReflectionMapping`, used as `scene.background`. Each row is one
+  latitude, blending `BACKDROP_ECLIPTIC_COLOR` toward `BACKDROP_POLE_COLOR` by
+  `|1 − 2·latitude|` raised to `BACKDROP_FALLOFF`: a faint violet band around the ecliptic
+  falling to deep indigo at the poles. All five values are in `constants/space.ts`. The
+  blend happens in three.js's linear working space and is converted back to sRGB before the
+  bytes are written, because the texture is tagged `SRGBColorSpace`; skipping that step
+  darkens the result to near black. It is built once at startup and never touched per frame.
+
+  A backdrop sphere was tried first and rejected. `scene.background` is rendered by the
+  renderer without a projection, so nothing can be clipped or occluded at any camera
+  distance, and the gradient stays fixed to the ecliptic because the texture is sampled by
+  world direction, not by camera orientation. Scene geometry cannot do this here: a
+  world-anchored sphere must satisfy radius + `MAX_DISTANCE` < `FAR`, which with
+  `MAX_DISTANCE` 400 and `FAR` 500 leaves under 100 units — smaller than Neptune's orbit at
+  roughly 301. `depthTest: false` does not help, because far-plane clipping happens in the
+  projection, not in the depth test.
 - `createCamera()`: `PerspectiveCamera` from `constants/camera.ts`. Initial values:
   FOV 50, NEAR 0.01, FAR 500, START_POSITION in scene coordinates (AU, y-up) above the
   ecliptic, framing Neptune's orbit.
@@ -373,8 +394,13 @@ writes the rest and explains each three.js piece as it lands: controls, `update`
 
 ## 14. Package changes
 
-Add `vitest` as a dev dependency. No other dependencies. Add the `test` and `fixtures`
+Add `vitest` as a dev dependency. No runtime dependencies. Add the `test` and `fixtures`
 scripts.
+
+Revised 2026-09-21: `@types/node` is also a dev dependency. `scripts/horizons.ts` imports
+`node:fs/promises`, and `scripts` is in the tsconfig `include`, so `pnpm check` needs the
+Node types. `tsconfig.json` names them in `types` alongside `vite/client`. They are types
+only, erased at compile time, and nothing shipped depends on them.
 
 ## 15. Done means
 
@@ -382,6 +408,8 @@ scripts.
   succeeds.
 - The mutation pass is reported: each function broken once, its test red.
 - `pnpm dev` shows the sun and eight planets orbiting at true distances, lit from the sun
-  with dim (not black) night sides, on a black background, with drag-to-orbit and
+  with dim (not black) night sides, against the graded indigo-to-violet backdrop, stable at
+  every reachable camera distance (revised 2026-09-21; it was a black background), with
+  drag-to-orbit and
   scroll-to-zoom.
 - Every tunable is in `src/constants/` and no file under `src/` contains a comment.
