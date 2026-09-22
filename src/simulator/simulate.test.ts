@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import type { TBody } from "../types/body";
 import type { TKeplerianElements } from "../types/elements";
 
+import { EBodyKind } from "../types/body";
+
 import { J2000 } from "../constants/astronomy";
 import { solar } from "../data/solar";
 import { propagate } from "./propagate";
@@ -18,10 +20,10 @@ const fixed = (elements: Partial<TKeplerianElements>): TKeplerianElements => ({
   ...elements,
 });
 
-const sun: TBody = { kind: "star", id: "sun", name: "Sun" };
+const sun: TBody = { kind: EBodyKind.Star, id: "sun", name: "Sun" };
 
 const orbiter = (id: string, parent: string, semiMajorAxis: number): TBody => ({
-  kind: "planet",
+  kind: EBodyKind.Planet,
   id,
   name: id,
   orbit: { parent, elementsAt: () => fixed({ semiMajorAxis }) },

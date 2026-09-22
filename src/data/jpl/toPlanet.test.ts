@@ -1,3 +1,5 @@
+
+import { EBodyKind } from "../../types/body";
 import { describe, expect, it } from "vitest";
 
 import { J2000 } from "../../constants/astronomy";
@@ -7,7 +9,7 @@ import { toPlanet } from "./toPlanet";
 
 describe("toPlanet", () => {
   it("returns a body of kind planet", () => {
-    expect(toPlanet(planets[0]!).kind).toBe("planet");
+    expect(toPlanet(planets[0]!).kind).toBe(EBodyKind.Planet);
   });
 
   it("carries the row's id and name", () => {

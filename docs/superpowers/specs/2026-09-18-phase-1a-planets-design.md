@@ -11,9 +11,17 @@ network calls at runtime. Positions come from a pure simulator validated against
 Horizons.
 
 Out of scope for 1A, each planned as a later addition that changes nothing designed here:
-asteroids, moons, a starfield, orbit lines, labels, UI controls, deployment, and
-state-preserving hot reload. Phase 1B begins with state-preserving hot reload, then adds
-asteroids.
+asteroids, moons, a starfield, labels, UI controls, deployment, and state-preserving hot
+reload. Phase 1B begins with state-preserving hot reload, then adds asteroids.
+
+Orbit lines (pulled into 1A 2026-09-21): without them the planets read as eight scattered
+dots rather than a system of nested ellipses — at the current `DAYS_PER_SECOND` the outer
+planets barely appear to move, so nothing on screen conveys the plane of the ecliptic, the
+eccentricity of Mercury, or the scale gap between the inner and outer planets. They cost
+nothing designed here: no change to the simulator, the types, `update`, or the frame loop.
+They add one pure sampler (`simulator/ellipse.ts`) and one scene builder
+(`scene/createOrbitLines.ts`), and the geometry is built once at startup and never touched
+per frame. This strikes `orbit lines` from the out-of-scope list above.
 
 ## 2. Conventions
 
@@ -45,8 +53,9 @@ src/
     astronomy.ts          KM_PER_AU, J2000 (2451545.0), GAUSSIAN_K (0.01720209895)
     camera.ts             FOV, NEAR, FAR, START_POSITION
     light.ts              INTENSITY, DECAY, COLOR
-    scale.ts              DISTANCE_SCALE, RADIUS_SCALE, STAR_RADIUS
+    scale.ts              DISTANCE_SCALE, RADIUS_SCALE, STAR_RADIUS, SCENE_RADIUS
     space.ts              backdrop colours, falloff, texture size
+    annotations.ts        orbit-line segments, colour, opacity
     time.ts               DAYS_PER_SECOND, START_DATE (ISO string, or null for now)
   types/
     appearance.ts  body.ts  elements.ts  handles.ts  located.ts  orbit.ts  state.ts  vec3.ts
@@ -56,13 +65,14 @@ src/
       julian.ts           Date or ISO string to Julian date
   data/
     solar.ts              the solar system body list: the sun plus the JPL planets
+    orbits.ts             sampled orbit points per body id, for the drawn lines
     jpl/
       types.ts            JplPlanet, the row as JPL publishes it
       planets.ts          Table 2a and 2b constants for the eight planets
       elementsAt.ts       the JPL evolution model
       toPlanet.ts         JplPlanet to Body
   simulator/
-    kepler.ts  position.ts  propagate.ts  simulate.ts
+    kepler.ts  position.ts  propagate.ts  simulate.ts  ellipse.ts
   state/
     initial.ts  tick.ts
   scene/
@@ -70,6 +80,7 @@ src/
     createRenderer.ts  createCamera.ts  createControls.ts  createScene.ts
     backdrop.ts
     createStar.ts  createPlanet.ts  createLights.ts  toScene.ts  update.ts  resize.ts
+    createOrbitLines.ts
 scripts/
   horizons.ts             standalone Node script, writes the fixtures
 test/
@@ -82,6 +93,19 @@ docs/
 Dependency direction: `main` imports everything. `scene` imports `types`, `constants`,
 `utils`. `simulator` imports `types`, `utils`. `data` imports `types`, `utils`,
 `constants/astronomy`. `state` imports `types`, `constants/time`. Nothing imports `main`.
+
+Clarified 2026-09-21, when orbit lines landed: `scene` takes its data as parameters and
+imports no `data` and no `simulator`. `createScene` had drifted from this — it imported
+`data/solar` directly — and now receives the body list and the sampled orbit points as
+arguments instead. `createOrbitLines` likewise takes already-sampled `TVec3` points rather
+than a body, so it needs no `simulator` import to build the geometry. Everything
+three.js-specific stays inside `scene`; everything that decides *what* to draw is passed in.
+
+The sampling itself lives in `data/orbits.ts`, not in `main`: deciding which bodies get a
+line and at what resolution is a question about the data, and `main` is startup and the
+frame loop, nothing else. This extends the direction above — `data` also imports
+`simulator` (for `ellipse`) and `constants/annotations`. `main` calls
+`createScene(solar, orbits(solar, start.date))` and composes nothing itself.
 
 ## 4. Types
 
@@ -99,11 +123,11 @@ type KeplerianElements = {
 
 type Orbit = { readonly parent: string; readonly elementsAt: (jd: number) => KeplerianElements }
 
-type BodyKind = "star" | "planet" | "moon" | "asteroid"
+enum EBodyKind { Star = "star", Planet = "planet", Moon = "moon", Asteroid = "asteroid" }
 
 type Body =
-  | { readonly kind: "star"; readonly id: string; readonly name: string }
-  | { readonly kind: "planet" | "moon" | "asteroid"; readonly id: string; readonly name: string; readonly orbit: Orbit }
+  | { readonly kind: EBodyKind.Star; readonly id: string; readonly name: string }
+  | { readonly kind: EBodyKind.Planet | EBodyKind.Moon | EBodyKind.Asteroid; readonly id: string; readonly name: string; readonly orbit: Orbit }
 
 type Located = { readonly body: Body; readonly position: Vec3 }
 
@@ -111,18 +135,28 @@ type State = { readonly jd: number; readonly daysPerSecond: number }
 
 type Appearance = { readonly color: number; readonly radiusKm: number }
 
-type Handles = {
-  readonly renderer: WebGLRenderer
-  readonly scene: Scene
-  readonly camera: PerspectiveCamera
-  readonly controls: OrbitControls
-  readonly meshes: ReadonlyMap<string, Mesh>
-}
+type Handles = { readonly scene: Scene; readonly bodies: ReadonlyMap<string, Mesh> }
 ```
 
 The annotations above are for this document only; the source files carry none.
 `handles.ts` uses `import type` from three.js, erased at compile time. Body ids are
 `sun`, `mercury`, `venus`, `earth`, `mars`, `jupiter`, `saturn`, `uranus`, `neptune`.
+
+`Handles` corrected 2026-09-21: it is `{ scene, bodies }`. The five-field shape written
+here originally was never built — the renderer, camera, and controls stay as locals in
+`main`, and only the scene and the body meshes need to cross a function boundary. `update`
+and the loop take what they need directly.
+
+Revised 2026-09-21: the kind discriminant is an `enum EBodyKind`, not a string-literal
+union, and the `T`-prefix convention of section 2 gives way to `E` for enums. Narrowing is
+unaffected — `body.kind !== EBodyKind.Star` still narrows `TBody` to `TOrbiter`, and
+`TStar` has no `orbit`. Two consequences were accepted deliberately. A string enum will not
+accept a bare string literal, so `{ kind: "star" }` no longer compiles and every body
+literal names the member; all eleven call sites were converted in the same change, so the
+tree has no residual errors. And an `enum` emits runtime JavaScript, unlike a type, so
+`data/solar.ts` and `data/jpl/toPlanet.ts` carry value imports of `types/body` rather than
+`import type`. A `const` object with a matching type would have avoided both, but the
+named members were wanted at call sites.
 
 `Orbit.elementsAt` is a closure built by the source's transformer. It is a record holding
 a function, not an object with methods: no `this`, no mutation. It is the one shape every
@@ -157,8 +191,16 @@ moons phase will revisit this.
 ### 5.2 Solar system
 
 `data/solar.ts` exports `solar`, the body list for our system: the sun,
-`{ kind: "star", id: "sun", name: "Sun" }`, followed by `planets.map(toPlanet)`. Another
-system later is another file with the same shape.
+`{ kind: EBodyKind.Star, id: "sun", name: "Sun" }`, followed by `planets.map(toPlanet)`.
+Another system later is another file with the same shape.
+
+`data/orbits.ts` (added 2026-09-21) exports `orbits(bodies, jd)`, a `ReadonlyMap` from body
+id to the sampled points of that body's drawn orbit, skipping the star. It is what
+`createScene` is handed so that `scene` needs no `data` or `simulator` import of its own.
+It reads `ORBIT_SEGMENTS` from `constants/annotations.ts` and calls `simulator/ellipse.ts`,
+which is why `data` imports `simulator` — see the dependency note in section 3. Adding a
+second system means calling it with that system's body list; nothing here is specific to
+the sun.
 
 ## 6. Simulator
 
@@ -176,6 +218,17 @@ system later is another file with the same shape.
   ```
 
   Returns a `Vec3` with z toward ecliptic north.
+- `ellipse(elements, segments)` (added 2026-09-21) returns `segments` points tracing the
+  whole orbit, by sweeping the *eccentric* anomaly uniformly rather than the mean anomaly.
+  Mean anomaly is uniform in time, not in arc, so sampling it obeys Kepler's second law and
+  bunches points at aphelion while thinning them at perihelion — exactly backwards for a
+  polyline, and visible as a faceted perihelion at Mercury's e = 0.206. Kepler's equation
+  runs the cheap way in reverse to fix it: for an evenly spaced E, feed `position` the
+  M = E − e·sin E that yields it, and `position` solves back to the E chosen. This keeps
+  `position` untouched and the Ω/i/ω rotation in exactly one place, so a line and its
+  planet cannot disagree. The first point is perihelion; the last is not a repeat of it,
+  because closing the ring is the renderer's job. `segments` is a parameter rather than a
+  constant read so the function stays pure and testable at small counts.
 - `propagate(body, jd)` returns the body's position relative to its parent: the origin for
   a star, otherwise `position(body.orbit.elementsAt(jd))`.
 - `simulate(bodies, jd)` returns `readonly Located[]` in input order with absolute
@@ -208,9 +261,13 @@ mutation sites in the whole program are: `update`, `resize`, and the loop in `ma
 
 - `createRenderer(canvas)`: `WebGLRenderer` on the `#scene` canvas, antialias on, pixel
   ratio capped at 2, sized to the window. No logarithmic depth buffer.
-- `createScene()` (revised 2026-09-21): `Scene` whose `background` is the texture from
-  `backdrop()`. A flat black background gave the planets nothing to sit against. The scene
-  holds no backdrop geometry. This replaces the "background set to black" rule.
+- `createScene(solar, orbits)` (revised 2026-09-21): `Scene` whose `background` is the
+  texture from `backdrop()`. A flat black background gave the planets nothing to sit
+  against. The scene holds no backdrop geometry. This replaces the "background set to
+  black" rule. It takes the body list and a `ReadonlyMap` of body id to sampled orbit
+  points, rather than importing `data/solar` itself, so that everything three.js-specific
+  is encapsulated here while every decision about *what* to draw is made by the caller.
+  It builds a mesh per body, adds an orbit line per entry in `orbits`, and adds the lights.
 - `backdrop()` (added 2026-09-21): a `DataTexture` of `BACKDROP_WIDTH` × `BACKDROP_HEIGHT`
   on `EquirectangularReflectionMapping`, used as `scene.background`. Each row is one
   latitude, blending `BACKDROP_ECLIPTIC_COLOR` toward `BACKDROP_POLE_COLOR` by
@@ -228,9 +285,26 @@ mutation sites in the whole program are: `update`, `resize`, and the loop in `ma
   `MAX_DISTANCE` 400 and `FAR` 500 leaves under 100 units — smaller than Neptune's orbit at
   roughly 301. `depthTest: false` does not help, because far-plane clipping happens in the
   projection, not in the depth test.
-- `createCamera()`: `PerspectiveCamera` from `constants/camera.ts`. Initial values:
-  FOV 50, NEAR 0.01, FAR 500, START_POSITION in scene coordinates (AU, y-up) above the
-  ecliptic, framing Neptune's orbit.
+- `createCamera()` (revised 2026-09-21): `PerspectiveCamera` built from
+  `constants/camera.ts` — FOV 50, NEAR 0.01, `FAR = MAX_DISTANCE + SCENE_RADIUS`, and
+  START_POSITION in scene coordinates (AU, y-up) above the ecliptic, framing Neptune's
+  orbit. Two corrections landed here together.
+
+  First, `constants/camera.ts` did not exist. The four values were inline literals in
+  `createCamera.ts`, against both section 2's rule that every tunable lives in `constants/`
+  and this section's own claim that the camera read from that file. The file now exists and
+  the function reads from it.
+
+  Second, `FAR` was a fixed 500 and clipped the outer orbits. This is the same
+  radius + `MAX_DISTANCE` < `FAR` constraint written two bullets above, which the backdrop
+  decision had already worked out and which a fixed 500 does not satisfy: Neptune's ring
+  reaches 303.39 units, the camera pulls back to `MAX_DISTANCE` 400, so the far edge sits at
+  703 and everything past 500 was cut. Nothing had been drawn that far out until the orbit
+  lines landed, so the arithmetic sat on the page without a visible symptom — the planets
+  are points near the middle of their own orbits and never reached the plane. `FAR` is now
+  derived from the constraint rather than picked, so raising `MAX_DISTANCE` widens it
+  automatically. `SCENE_RADIUS` is 320 in `constants/scale.ts`, with headroom over the
+  measured 303.39 for drift in the JPL per-century rates.
 - `createControls(camera, canvas)`: `OrbitControls` from `three/addons`, damping on,
   target at the origin.
 - `toScene(v)`: `new Vector3(v.x, v.z, −v.y)` scaled by `DISTANCE_SCALE`. This is a
@@ -254,6 +328,25 @@ mutation sites in the whole program are: `update`, `resize`, and the loop in `ma
 - `appearance.ts`: `Record<string, Appearance>` keyed by body id for the nine 1A bodies,
   colours chosen for recognisability, radii the NASA fact-sheet mean radii in km. A body
   with no entry is a startup error. 1B adds a per-kind fallback.
+- `createOrbitLines(points)` (added 2026-09-21): a `LineLoop` over the already-scaled
+  scene positions of `points`, one three-component vertex each in a `Float32Array` handed
+  to `BufferGeometry.setAttribute("position", …)`, written by computed offset the way
+  `backdrop` fills its `Uint8Array`. `LineLoop` rather than `Line` closes the ring without
+  a duplicated vertex — note `LineLoop extends Line`, so an `instanceof Line` assertion
+  cannot tell them apart. The material is a `LineBasicMaterial` in `ORBIT_COLOR` at
+  `ORBIT_OPACITY`, `transparent`, with `depthWrite: false` so a faint line never occludes a
+  planet behind it and `toneMapped: false` so the sun's intensity cannot brighten it.
+  `linewidth` is deliberately not set: it is ignored on virtually every WebGL platform, a
+  limitation of the graphics API rather than a three.js bug, so faintness comes from colour
+  and opacity. Real line weight would mean `Line2`/`LineGeometry`/`LineMaterial` from
+  `three/addons/lines/`, at the cost of a fatter material and per-resize resolution
+  updates. The geometry is built once at startup and never touched per frame; a later
+  date-slider phase rebuilds it by re-running `ellipse`, which is why the sampler is a
+  separate pure function from the builder.
+- A single shared cool grey-blue is used for every orbit rather than a faint tint of each
+  planet's own `appearance` colour: eight saturated hues at low opacity against a violet
+  backdrop read as noise competing with the planets, whereas one neutral line recedes and
+  lets the spheres stay the only coloured things in the scene.
 - `update(handles, located)`: for each located body, sets the named mesh's position from
   `toScene`.
 - `resize(handles)`: sets renderer size and camera aspect, updates the projection matrix.
@@ -270,6 +363,20 @@ viewport with no margin on a black body, so nothing flashes before the first fra
 import `solar` as the body list; build a mesh per body via `createStar` or `createPlanet`
 and add each to the scene; assemble `Handles`; register `() => resize(handles)` on the
 window's resize event and call it once; start the first frame with `initial(new Date())`.
+
+Revised 2026-09-21, for orbit lines: the start state is hoisted to `const start =
+initial(new Date())` so the lines and the loop share one epoch, rather than being
+constructed inline in the final `setAnimationLoop` call. `main` then calls
+`createScene(solar, orbits(solar, start.date))` and does nothing else with the data.
+
+`orbits(bodies, jd)` lives in `data/`, not in `main`. It keys a map by body id, skipping
+the star, with `ellipse(body.orbit.elementsAt(jd), ORBIT_SEGMENTS)` for each. The filter on
+the `kind` discriminant is what narrows `TBody` to `TOrbiter`, since `TStar` has no `orbit`;
+this narrowing was verified under this project's TypeScript 7 with `--strict`, and again
+after the move to `EBodyKind`. If a future version regresses it, the fallback is
+`bodies.flatMap((body) => (body.kind === EBodyKind.Star ? [] : [body]))`, which infers
+`TOrbiter[]` structurally. Sampling happens once at startup: the elements drift with the JPL
+per-century rates, but over a century the drift is far below a pixel.
 
 The loop carries state by closure: a function of `(state, previous)` returns the frame
 callback, which computes elapsed = timestamp − previous (0 on the first frame), derives
@@ -345,12 +452,42 @@ formula error produces errors thousands of times larger and cannot hide inside i
 - `toPlanet`: kind, id, parent, and that `elementsAt(J2000)` matches `elementsAt(row, J2000)`.
 - `simulate`: the sun is at the origin; a planet equals `propagate`; a synthetic moon around
   a synthetic planet lands at parent plus offset; an unknown parent throws.
+- `ellipse` (added 2026-09-21): returns exactly `segments` points; a circular orbit keeps
+  every point at radius a; every point of an eccentric orbit satisfies
+  ((x + ae)/a)² + (y/b)² = 1; the first point is perihelion at a(1 − e) and the halfway
+  point is aphelion at −a(1 + e); **the sweep is in eccentric anomaly, not mean anomaly**,
+  pinned by four hand-derived vertices of the standard parametrisation at a = 1, e = 0.6,
+  segments = 4 — an M-sweep puts point 1 at (−1.097, 0.694) instead of (−0.6, 0.8), so the
+  test goes hard red with no threshold to tune (an e near Mercury's real 0.206 would be a
+  poor choice: the two sweeps differ by only ~1.5× in spacing there, close enough to hide
+  inside a loose tolerance); a zero-inclination orbit stays at z = 0 while an inclined one
+  peaks at sin i; and the caller's elements come back unmutated.
+- `createOrbitLines` (added 2026-09-21): returns a `LineLoop` — asserted as
+  `instanceof LineLoop`, never `instanceof Line`, which would pass for a plain open `Line`
+  and let the ring silently not close; the position attribute has `count === points.length`
+  and `itemSize === 3`; vertex k equals `toScene(points[k])`, tying the geometry back to the
+  one frame-change seam rather than a hand-copied vector; the material is a
+  `LineBasicMaterial` carrying `ORBIT_COLOR`, `ORBIT_OPACITY`, `transparent` and
+  `depthWrite: false`; an empty point list yields count 0 and does not throw. Colour is
+  asserted with `material.color.getHex()`, not by bit-shifting into raw channels the way
+  `backdrop` does: `backdrop` writes raw bytes itself, whereas a `LineBasicMaterial`
+  converts sRGB→linear on ingest, so `color.r` reads 0.0578 where the bit-shifted byte
+  would be 0.2667. `getHex()` converts back and round-trips the input exactly.
 - `julian`: J2000 noon is 2451545.0; the Unix epoch is 2440587.5.
 - `tick`, `initial`, `toScene`, `add`, `wrap`, `radians`: direct.
 - Scene shape tests: `createPlanet` returns a mesh with a `MeshStandardMaterial` of the
   given colour and a radius derived from the appearance; `createStar` returns a mesh with a
   `MeshBasicMaterial` and a `PointLight` child; `createCamera` and `createScene` carry the
   constants; `update` lands each mesh at `toScene` of its position.
+
+  Status 2026-09-21: of that bullet, only `update` is actually tested, alongside `toScene`
+  and `createOrbitLines`. `createPlanet`, `createStar`, `createCamera`, and `createScene`
+  have no test file. `createScene` is the one worth writing first: it now takes the body
+  list and the orbit map as parameters, and builds a mesh per body, a line per orbit entry,
+  and the lights, so nothing currently pins that assembly. This bullet described intent
+  rather than fact and is recorded here as an open gap, not a claim.
+- `orbits` (added 2026-09-21): no test yet. It is a filter and a map over `ellipse`, which
+  is itself well covered, but the skip-the-star behaviour and the id keying are untested.
 
 ## 12. Teaching split
 
@@ -412,4 +549,10 @@ only, erased at compile time, and nothing shipped depends on them.
   every reachable camera distance (revised 2026-09-21; it was a black background), with
   drag-to-orbit and
   scroll-to-zoom.
+- Eight faint grey-blue closed ellipses are visible (added 2026-09-21), nested and
+  near-coplanar, each planet sitting *on* its own line and tracking along it as time
+  advances — never drifting off it, which is what confirms the sampler and `propagate`
+  agree. Mercury's ellipse is visibly off-centre from the sun, and zooming to its
+  perihelion shows a smooth curve rather than facets. The lines do not wash out the planets
+  or the backdrop at default zoom; `ORBIT_OPACITY` is the one number to turn if they do.
 - Every tunable is in `src/constants/` and no file under `src/` contains a comment.

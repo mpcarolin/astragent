@@ -6,6 +6,7 @@ import { createHud } from "./scene/createHud";
 import { createRenderer } from "./scene/createRenderer";
 import { createScene } from "./scene/createScene";
 import { update } from "./scene/update";
+import { orbits } from "./data/orbits";
 import { solar } from "./data/solar";
 import { simulate } from "./simulator/simulate";
 import { initial } from "./state/initial";
@@ -14,9 +15,11 @@ import { nextState } from "./state/nextState";
 const canvas = document.querySelector<HTMLCanvasElement>("#scene");
 if (!canvas) throw new Error("no #scene canvas");
 
+const start = initial(new Date());
+
 const camera = createCamera();
 const updateHud = createHud(camera);
-const { scene, bodies } = createScene();
+const { scene, bodies } = createScene(solar, orbits(solar, start.date));
 const renderer = createRenderer(canvas);
 const controls = createControls(camera, canvas);
 
@@ -36,4 +39,4 @@ function loop(state: TState, previous: number) {
   };
 }
 
-renderer.setAnimationLoop(loop(initial(new Date()), 0));
+renderer.setAnimationLoop(loop(start, 0));

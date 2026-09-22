@@ -1,13 +1,15 @@
 import { PerspectiveCamera } from "three";
 
+import { FAR, FOV, NEAR, START_POSITION } from "../constants/camera";
+
 export function createCamera(): PerspectiveCamera {
   const camera = new PerspectiveCamera(
-    50,
+    FOV,
     window.innerWidth / window.innerHeight,
-    0.01,
-    500,
+    NEAR,
+    FAR,
   );
-  camera.position.set(0, 1, 150);
+  camera.position.set(START_POSITION.x, START_POSITION.y, START_POSITION.z);
   camera.lookAt(0, 0, 0);
   return camera;
 }

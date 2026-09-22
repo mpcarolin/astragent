@@ -1,6 +1,11 @@
 import type { TOrbit } from "./orbit";
 
-export type TBodyKind = "star" | "planet" | "moon" | "asteroid";
+export enum EBodyKind {
+  Star = "star",
+  Planet = "planet",
+  Moon = "moon",
+  Asteroid = "asteroid",
+}
 
 export type TBaseBody = {
   readonly id: string;
@@ -8,7 +13,7 @@ export type TBaseBody = {
 };
 
 export type TStar = TBaseBody & {
-  readonly kind: "star";
+  readonly kind: EBodyKind.Star;
 };
 
 export type TOrbitingBody = TBaseBody & {
@@ -16,15 +21,15 @@ export type TOrbitingBody = TBaseBody & {
 };
 
 export type TPlanet = TOrbitingBody & {
-  readonly kind: "planet";
+  readonly kind: EBodyKind.Planet;
 };
 
 export type TMoon = TOrbitingBody & {
-  readonly kind: "moon";
+  readonly kind: EBodyKind.Moon;
 };
 
 export type TAsteroid = TOrbitingBody & {
-  readonly kind: "asteroid";
+  readonly kind: EBodyKind.Asteroid;
 };
 
 export type TOrbiter = TPlanet | TMoon | TAsteroid;

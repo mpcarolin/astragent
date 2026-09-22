@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import type { TBody } from "../types/body";
 import type { TKeplerianElements } from "../types/elements";
 
+import { EBodyKind } from "../types/body";
+
 import horizons from "../../test/fixtures/horizons.json" with { type: "json" };
 import { J2000, KM_PER_AU } from "../constants/astronomy";
 import { solar } from "../data/solar";
@@ -38,18 +40,18 @@ const circular = (over: Partial<TKeplerianElements> = {}): TKeplerianElements =>
 
 describe("propagate", () => {
   it("puts a star at the origin", () => {
-    const star: TBody = { kind: "star", id: "sun", name: "Sun" };
+    const star: TBody = { kind: EBodyKind.Star, id: "sun", name: "Sun" };
     expect(propagate(star, J2000)).toEqual({ x: 0, y: 0, z: 0 });
   });
 
   it("puts a star at the origin at any date", () => {
-    const star: TBody = { kind: "star", id: "sun", name: "Sun" };
+    const star: TBody = { kind: EBodyKind.Star, id: "sun", name: "Sun" };
     expect(propagate(star, J2000 + 12345)).toEqual({ x: 0, y: 0, z: 0 });
   });
 
   it("returns the position of an orbiter's elements at the given date", () => {
     const body: TBody = {
-      kind: "planet",
+      kind: EBodyKind.Planet,
       id: "test",
       name: "Test",
       orbit: { parent: "sun", elementsAt: () => circular({ semiMajorAxis: 4 }) },
@@ -60,7 +62,7 @@ describe("propagate", () => {
   it("passes the date through to the orbit's elements", () => {
     const seen: number[] = [];
     const body: TBody = {
-      kind: "planet",
+      kind: EBodyKind.Planet,
       id: "test",
       name: "Test",
       orbit: {
@@ -119,7 +121,7 @@ describe("propagate", () => {
 
   it("keeps every planet close to the ecliptic plane", () => {
     for (const body of solar) {
-      if (body.kind === "star") continue;
+      if (body.kind === EBodyKind.Star) continue;
       const p = propagate(body, J2000);
       const r = Math.hypot(p.x, p.y, p.z);
       expect(Math.abs(p.z) / r).toBeLessThan(0.13);

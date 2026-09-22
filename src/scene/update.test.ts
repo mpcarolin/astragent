@@ -3,10 +3,12 @@ import { Mesh } from "three";
 
 import type { TBody } from "../types/body";
 
+import { EBodyKind } from "../types/body";
+
 import { toScene } from "./toScene";
 import { update } from "./update";
 
-const sun: TBody = { kind: "star", id: "sun", name: "Sun" };
+const sun: TBody = { kind: EBodyKind.Star, id: "sun", name: "Sun" };
 
 describe("update", () => {
   it("lands a mesh at toScene of its located position", () => {
