@@ -1,5 +1,6 @@
-import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import type { PerspectiveCamera } from "three";
+
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { DAMPING, MAX_DISTANCE, MIN_DISTANCE } from "../constants/controls";
 
 export function createControls(

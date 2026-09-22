@@ -1,11 +1,18 @@
-import * as THREE from "three";
-import { STAR_COLOR } from "../constants/scale";
+import type { TAppearance } from "../types/appearance";
 
-export const createStar = (color: string | number = STAR_COLOR) => {
-  const star = new THREE.Mesh(
-    new THREE.SphereGeometry(8, 32, 16),
-    new THREE.MeshBasicMaterial({ color }),
+import { Mesh, MeshBasicMaterial, PointLight, SphereGeometry } from "three";
+
+import { COLOR, DECAY, INTENSITY } from "../constants/light";
+import { SEGMENTS_HEIGHT, SEGMENTS_WIDTH, STAR_RADIUS } from "../constants/scale";
+
+export function createStar({ color }: TAppearance): Mesh {
+  const star = new Mesh(
+    new SphereGeometry(STAR_RADIUS, SEGMENTS_WIDTH, SEGMENTS_HEIGHT),
+    new MeshBasicMaterial({ color }),
   );
 
-  return star
+  const light = new PointLight(COLOR, INTENSITY, 0, DECAY);
+  star.add(light);
+
+  return star;
 }

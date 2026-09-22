@@ -1,6 +1,7 @@
-import { Vector3 } from "three";
-import type { Vec3 } from "../types/vec3";
+import type { TVec3 } from "../types/vec3";
 
-export function toScene(_v: Vec3): Vector3 {
+import { Vector3 } from "three";
+
+export function toScene(_v: TVec3): Vector3 {
   throw new Error("TODO(human)");
 }

@@ -21,7 +21,12 @@ Research: `docs/research/`. Terms: `docs/definitions.md`.
 - three.js is imported only under `scene/` and in `types/handles.ts` (type-only).
 - Units: AU, radians, Julian date numbers. Degrees exist only inside `data/jpl/`.
 - Every tunable number lives in `src/constants/`, never inline.
-- A JPL or other external shape never leaves `data/`. Transform it to the generic `Body`.
+- A JPL or other external shape never leaves `data/`. Transform it to the generic `TBody`.
+- Types are prefixed `T`, enums `E`. `TVec3`, `TBody`, `EBodyKind`.
+- Every object shape gets its own named type. No inline object literals in a signature,
+  and no anonymous members inside a union — each arm is a named type of its own.
+- `import type` statements come first in a file's import list, as one group, separated
+  from value imports by a blank line.
 
 ## Teaching protocol
 

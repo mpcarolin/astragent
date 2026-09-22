@@ -1,4 +1,5 @@
 import type { PerspectiveCamera } from "three";
+
 import { AXIS_COLORS, HUD, PRECISION } from "../constants/debug";
 
 export function createHud(camera: PerspectiveCamera): (() => void) {
