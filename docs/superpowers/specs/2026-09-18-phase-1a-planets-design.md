@@ -65,7 +65,7 @@ src/
   scene/
     appearance.ts         colour and physical radius per body id
     createRenderer.ts  createCamera.ts  createControls.ts  createScene.ts
-    createStar.ts  createPlanet.ts  toScene.ts  update.ts  resize.ts
+    createStar.ts  createPlanet.ts  createLights.ts  toScene.ts  update.ts  resize.ts
 scripts/
   horizons.ts             standalone Node script, writes the fixtures
 test/
@@ -220,6 +220,11 @@ mutation sites in the whole program are: `update`, `resize`, and the loop in `ma
   using `constants/light.ts`. Initial DECAY is 0 so every planet reads lit with a correct
   day and night side; realistic 1/d² falloff is DECAY 2. The star's rendered radius is the
   constant, not the physical radius scaled, because the scaled sun would swallow Mercury.
+- `createLights()` (revised 2026-09-21): pure black night sides read as visually broken
+  rather than physically correct, so a single `AmbientLight` from `constants/light.ts`
+  (`AMBIENT_COLOR`, `AMBIENT_INTENSITY`) sits alongside the star's `PointLight`, low enough
+  to keep day/night contrast but not so low the unlit hemisphere reads as void. This
+  replaces the "no ambient light" rule below.
 - `createPlanet(body, appearance)`: `Mesh` of `SphereGeometry` and `MeshStandardMaterial`
   with the appearance colour, roughness 1, metalness 0. Radius is
   `radiusKm / KM_PER_AU × RADIUS_SCALE`, linear. If no constant keeps both Mercury visible
@@ -232,7 +237,8 @@ mutation sites in the whole program are: `update`, `resize`, and the loop in `ma
   `toScene`.
 - `resize(handles)`: sets renderer size and camera aspect, updates the projection matrix.
 
-No ambient light. The night side of a planet is black by design.
+The night side of a planet is dim, not black: a low `AmbientLight` prevents pure void
+(see `createLights` above).
 
 The page: `index.html` keeps the `#scene` canvas; a small stylesheet makes it fill the
 viewport with no margin on a black body, so nothing flashes before the first frame.
@@ -376,5 +382,6 @@ scripts.
   succeeds.
 - The mutation pass is reported: each function broken once, its test red.
 - `pnpm dev` shows the sun and eight planets orbiting at true distances, lit from the sun
-  with dark night sides, on a black background, with drag-to-orbit and scroll-to-zoom.
+  with dim (not black) night sides, on a black background, with drag-to-orbit and
+  scroll-to-zoom.
 - Every tunable is in `src/constants/` and no file under `src/` contains a comment.
