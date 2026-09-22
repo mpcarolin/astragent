@@ -56,6 +56,7 @@ src/
     scale.ts              DISTANCE_SCALE, RADIUS_SCALE, STAR_RADIUS, SCENE_RADIUS
     space.ts              backdrop colours, falloff, texture size
     annotations.ts        orbit-line segments, colour, opacity
+    textures.ts           texture folder, anisotropy, the untinted white
     time.ts               DAYS_PER_SECOND, START_DATE (ISO string, or null for now)
   types/
     appearance.ts  body.ts  elements.ts  handles.ts  located.ts  orbit.ts  state.ts  vec3.ts
@@ -76,11 +77,15 @@ src/
   state/
     initial.ts  tick.ts
   scene/
-    appearance.ts         colour and physical radius per body id
+    appearance.ts         colour, physical radius, and texture file per body id
     createRenderer.ts  createCamera.ts  createControls.ts  createScene.ts
     backdrop.ts
     createStar.ts  createPlanet.ts  createAmbient.ts  toScene.ts  update.ts  resize.ts
     createOrbitLines.ts
+    loadTextures.ts       the one async function; body ids to loaded textures
+public/
+  textures/               the nine 2048 x 1024 body maps, served as static assets
+    CREDITS.md            the CC BY 4.0 attribution the licence requires
 scripts/
   horizons.ts             standalone Node script, writes the fixtures
 test/
@@ -133,7 +138,7 @@ type Located = { readonly body: Body; readonly position: Vec3 }
 
 type State = { readonly jd: number; readonly daysPerSecond: number }
 
-type Appearance = { readonly color: number; readonly radiusKm: number }
+type Appearance = { readonly color: number; readonly radiusKm: number; readonly texture: string }
 
 type Handles = { readonly scene: Scene; readonly bodies: ReadonlyMap<string, Mesh> }
 ```
@@ -353,6 +358,29 @@ mutation sites in the whole program are: `update`, `resize`, and the loop in `ma
   kept while RADIUS_SCALE and DISTANCE_SCALE differ by 100×, and the sun is the one body
   where that exaggeration runs out of room. The sun's real `radiusKm` in `appearance.ts`
   is therefore unread by `createStar`, which is intended rather than an oversight.
+
+  Recorded 2026-09-22, unfixed, because it is a lighting decision rather than a texture one:
+  `INTENSITY` 5000 with `DECAY` 0 overdrives the lit hemisphere so far past white that the
+  new colour maps are invisible on the day side. Measured rather than guessed — rendering
+  the earth map at 512 x 512 under this section's own ambient light and counting pixels at
+  or above 250 in all three channels gives 99.3% of the lit surface fully clipped at
+  intensity 5000, 17.0% at 100, 2.1% at 20, 0.3% at 10, and none at 5 or below. On screen
+  the effect is unmistakable: earth's night side renders correct continents and ocean while
+  its day side is a flat white disc with a hard straight terminator, and jupiter is white
+  but for a crescent of banding at the limb.
+
+  Tone mapping does not rescue it. `ACESFilmicToneMapping`, `AgXToneMapping`, and
+  `NeutralToneMapping` were each tried on the real scene at this intensity; all three
+  darkened the night side and left the day side pure white, which is the expected result,
+  since no response curve recovers detail from a signal driven three orders of magnitude
+  past its range. The fix is the intensity, and the constraint to respect while choosing one
+  is that `DECAY` 0 means every planet from mercury to neptune receives the identical
+  irradiance, so a single value must suit all eight at once — which is what makes it a
+  decision about the model rather than a number to nudge.
+
+  This was always true; flat colours merely hid it, because a clipped `0x4488ff` still reads
+  as a bright blue planet whereas a clipped photograph reads as a bug. The textures did not
+  cause the problem, they exposed it.
 - `createAmbient()` (renamed from `createLights`, revised 2026-09-22): pure black night
   sides read as visually broken rather than physically correct, so a single `AmbientLight`
   from `constants/light.ts` (`AMBIENT_COLOR`, `AMBIENT_INTENSITY`) sits alongside the
@@ -387,6 +415,46 @@ mutation sites in the whole program are: `update`, `resize`, and the loop in `ma
 - `appearance.ts`: `Record<string, Appearance>` keyed by body id for the nine 1A bodies,
   colours chosen for recognisability, radii the NASA fact-sheet mean radii in km. A body
   with no entry is a startup error. 1B adds a per-kind fallback.
+
+  Extended 2026-09-22, when textures landed: each entry gains a `texture`, the file name of
+  that body's colour map inside `public/textures/`. The name rather than a path, so the
+  folder is named once in `constants/textures.ts` and a body cannot point outside it. The
+  `color` stays and is not dead: it is what a body renders in when its texture is missing,
+  which is the whole fallback path described under `loadTextures` below.
+- `loadTextures(ids)` (added 2026-09-22): the one async function in the program. It returns
+  a `Promise<ReadonlyMap<string, Texture>>` keyed by body id, built from one
+  `TextureLoader` with its path set to `TEXTURE_PATH`, resolving each id's `texture` file
+  through `appearance`. It uses `loader.loadAsync`, not `loader.load`: `load` returns a
+  `Texture` immediately and fills it in later by mutation, which would put a mutation site
+  outside the three named in this section, whereas `loadAsync` returns a real promise and
+  the texture is complete when it resolves.
+
+  Every map is tagged `SRGBColorSpace` explicitly. This is not optional and not a default:
+  `Texture`'s constructor sets `NoColorSpace` and `TextureLoader` never changes it, so an
+  untagged colour map is sampled as though it were already linear and the planet renders
+  visibly washed out. `backdrop` had already worked this out for its `DataTexture` — the
+  same rule, arrived at from the other direction, since `backdrop` must convert *into* sRGB
+  before writing bytes for exactly the same reason. Verified after loading: the earth map
+  reports 2048 x 1024 and `colorSpace` `srgb`.
+
+  Loading is hoisted above the scene graph rather than threaded into it. `createScene`,
+  `createPlanet`, and `createStar` stay synchronous and pure; only `main` awaits. This is
+  why the map is a parameter and not a lookup — see the three signature changes below.
+- `createStar` and `createPlanet` take a second parameter, `Texture | null`
+  (revised 2026-09-22). The texture becomes the material's `map`. When a map is present the
+  material's `color` is `UNTINTED` (white) rather than the appearance colour, because
+  three.js multiplies `color` into `map`: leaving the sun's `0xffcc33` in place would
+  filter its own photograph through an orange gel, and the same applies to every planet.
+  When the map is `null` the appearance colour is used exactly as before, so the flat
+  spheres this phase shipped with remain the fallback rather than a lost branch.
+
+  The sun is textured too, on a `MeshBasicMaterial`. Unlit is correct for a star — it is the
+  light source, so it should not be shaded by one — and a basic material still samples a
+  `map`, so the granulation shows without any lighting contribution.
+- `createScene(solar, orbits, textures)` (revised 2026-09-22): a third parameter, the map
+  from `loadTextures`. Per body it passes `textures.get(body.id) ?? null` down to
+  `createStar` or `createPlanet`. The function stays synchronous, and an absent id is not an
+  error — it is the flat-colour fallback.
 - `createOrbitLines(points)` (added 2026-09-21): a `LineLoop` over the already-scaled
   scene positions of `points`, one three-component vertex each in a `Float32Array` handed
   to `BufferGeometry.setAttribute("position", …)`, written by computed offset the way
@@ -427,6 +495,21 @@ Revised 2026-09-21, for orbit lines: the start state is hoisted to `const start 
 initial(new Date())` so the lines and the loop share one epoch, rather than being
 constructed inline in the final `setAnimationLoop` call. `main` then calls
 `createScene(solar, orbits(solar, start.date))` and does nothing else with the data.
+
+Revised 2026-09-22, for textures: `main` is now an async module. It awaits
+`loadTextures(solar.map((body) => body.id))` before building the scene and passes the
+result to `createScene` as its third argument. Top-level `await` is available without a
+transform here — the package is `"type": "module"` and `build.target` is `es2022` — so this
+costs no bundler configuration and no wrapper function, and nothing else in the file
+changes. `main` remains the only file that awaits anything.
+
+The rejection path is caught rather than propagated: `.catch(() => new Map())`. An
+uncaught rejection in a top-level `await` aborts module evaluation, so the frame loop would
+never start and the page would stay blank — the worst possible outcome for a missing
+decorative asset. Falling back to an empty map instead makes every `textures.get(id) ?? null`
+yield `null`, which is precisely the flat-colour path the phase already shipped and tested.
+A failed download therefore costs surface detail and nothing else: the simulation, the
+orbit lines, and the controls are unaffected.
 
 `orbits(bodies, jd)` lives in `data/`, not in `main`. It keys a map by body id, skipping
 the star, with `ellipse(body.orbit.elementsAt(jd), ORBIT_SEGMENTS)` for each. The filter on
@@ -597,6 +680,20 @@ Revised 2026-09-21: `@types/node` is also a dev dependency. `scripts/horizons.ts
 `node:fs/promises`, and `scripts` is in the tsconfig `include`, so `pnpm check` needs the
 Node types. `tsconfig.json` names them in `types` alongside `vite/client`. They are types
 only, erased at compile time, and nothing shipped depends on them.
+
+Revised 2026-09-22, for textures: still no dependencies, runtime or dev. `TextureLoader` is
+part of `three`, which is already the one runtime dependency, so the nine body maps cost
+code and bytes but nothing in `package.json`.
+
+The bytes are an obligation rather than merely an asset. The textures are Solar System
+Scope's, by INOVE, used under Creative Commons Attribution 4.0 International. CC BY 4.0
+permits commercial use and redistribution but requires attribution wherever the work is
+distributed — the creator, the title, the source, and the licence. `public/textures/CREDITS.md`
+carries all four and ships alongside the images, so the obligation travels with the files
+rather than living only in a commit message. This matters beyond tidiness: the project may
+be sold, and an unattributed CC BY work is a licence breach, not a style lapse. Anything
+that replaces these files must either carry its own attribution or be licensed such that
+none is required.
 
 ## 15. Done means
 

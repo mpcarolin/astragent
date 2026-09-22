@@ -5,6 +5,7 @@ import { createControls } from "./scene/createControls";
 import { createHud } from "./scene/createHud";
 import { createRenderer } from "./scene/createRenderer";
 import { createScene } from "./scene/createScene";
+import { loadTextures } from "./scene/loadTextures";
 import { update } from "./scene/update";
 import { orbits } from "./data/orbits";
 import { solar } from "./data/solar";
@@ -17,9 +18,13 @@ if (!canvas) throw new Error("no #scene canvas");
 
 const start = initial(new Date());
 
+const textures = await loadTextures(solar.map((body) => body.id)).catch(
+  () => new Map<string, never>(),
+);
+
 const camera = createCamera();
 const updateHud = createHud(camera);
-const { scene, bodies } = createScene(solar, orbits(solar, start.date));
+const { scene, bodies } = createScene(solar, orbits(solar, start.date), textures);
 const renderer = createRenderer(canvas);
 const controls = createControls(camera, canvas);
 
