@@ -3,14 +3,14 @@ import type { TAppearance } from "../types/appearance";
 
 import { Mesh, MeshStandardMaterial, SphereGeometry } from "three";
 
-import { KM_PER_AU } from "../constants/astronomy";
-import { RADIUS_SCALE, SEGMENTS_HEIGHT, SEGMENTS_WIDTH } from "../constants/scale";
+import { SEGMENTS_HEIGHT, SEGMENTS_WIDTH } from "../constants/scale";
 import { UNTINTED } from "../constants/textures";
+import { radius } from "./radius";
 
-export function createPlanet({ color, radiusKm }: TAppearance, map: Texture | null): Mesh {
-  const radius = (radiusKm / KM_PER_AU) * RADIUS_SCALE;
+export function createPlanet(look: TAppearance, map: Texture | null): Mesh {
+  const { color } = look;
   return new Mesh(
-    new SphereGeometry(radius, SEGMENTS_WIDTH, SEGMENTS_HEIGHT),
+    new SphereGeometry(radius(look), SEGMENTS_WIDTH, SEGMENTS_HEIGHT),
     new MeshStandardMaterial({
       color: map ? UNTINTED : color,
       map,

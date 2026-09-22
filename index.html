@@ -32,6 +32,28 @@
       background: rgba(0, 0, 0, 0.6);
       pointer-events: none;
     }
+
+    #labels {
+      position: fixed;
+      top: 0;
+      left: 0;
+      pointer-events: none;
+    }
+
+    .label {
+      transform: translateY(-0.5rem);
+      font: 11px ui-monospace, SFMono-Regular, Menlo, monospace;
+      letter-spacing: 0.08em;
+      color: #cfd8ea;
+      text-shadow: 0 0 4px #000, 0 0 8px #000;
+      white-space: nowrap;
+      cursor: pointer;
+      pointer-events: auto;
+    }
+
+    .label:hover {
+      color: #ffffff;
+    }
   </style>
 </head>
 

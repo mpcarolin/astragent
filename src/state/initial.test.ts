@@ -19,4 +19,12 @@ describe("initial", () => {
   it("starts at the configured rate", () => {
     expect(initial(new Date()).rate).toBe(DAYS_PER_SECOND);
   });
+
+  it("starts with no focus", () => {
+    expect(initial(new Date()).focus).toBeNull();
+  });
+
+  it("starts with the pointer up", () => {
+    expect(initial(new Date()).pointer).toBeNull();
+  });
 });

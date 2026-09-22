@@ -17,7 +17,9 @@ Research: `docs/research/`. Terms: `docs/definitions.md`.
 - No comments in code I write. The one marker allowed in my code is a stub body of
   `throw new Error("TODO(human)")`. This doesn't bind code the owner writes themselves.
 - Functional: plain inputs in, value out. The only mutation sites are `scene/update.ts`,
-  `scene/resize.ts`, and the frame loop in `main.ts`.
+  `scene/resize.ts`, `scene/focus.ts`, `scene/reveal.ts`, and the frame loop in `main.ts`.
+  `state/queue.ts` owns the one mutable buffer (the action queue) and is the one file
+  allowed two exports.
 - three.js is imported only under `scene/` and in `types/handles.ts` (type-only).
 - Units: AU, radians, Julian date numbers. Degrees exist only inside `data/jpl/`.
 - Every tunable number lives in `src/constants/`, never inline.

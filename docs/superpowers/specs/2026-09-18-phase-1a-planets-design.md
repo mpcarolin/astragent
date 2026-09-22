@@ -23,6 +23,22 @@ They add one pure sampler (`simulator/ellipse.ts`) and one scene builder
 (`scene/createOrbitLines.ts`), and the geometry is built once at startup and never touched
 per frame. This strikes `orbit lines` from the out-of-scope list above.
 
+Labels, picking, and focus (pulled into 1A 2026-09-22, "phase 1C"): nine textured spheres
+on eight ellipses, and nothing on screen says which planet is which or lets you inspect one.
+The scale argument is the decisive one. A planet's radius is `radiusKm / KM_PER_AU *
+RADIUS_SCALE`, so Earth is **0.043 scene units** against orbits spaced 10 units per AU: at
+the default camera distance of 150 a planet is one or two pixels. Raycasting those spheres
+is close to unusable, so the primary click target is a DOM label, not the mesh — which is
+the argument for `CSS2DRenderer` over sprites. The mesh raycast (`scene/pick.ts`) is wired
+as a secondary path that works once zoomed in. This strikes `labels` from the out-of-scope
+list above. `CSS2DRenderer` ships inside `three@0.186.0` under `examples/jsm/renderers/`,
+reachable through the `three/addons` alias already used by `createControls`, so no
+dependency is added.
+
+Teaching protocol suspended for this phase at the owner's request: §12's split does not
+apply to 1C, and the assistant wrote every file. Recorded so §12 reads as paused, not
+violated.
+
 ## 2. Conventions
 
 - One exported function per file, and the file is named exactly after that function. Names
@@ -258,11 +274,59 @@ the sun.
 `daysPerSecond × elapsedMs / 1000`. These are the first of the transition functions that
 agent tools will later be.
 
+Corrected 2026-09-22, against the built code: the file is `state/reducer.ts`, not
+`state/tick.ts` as §3, §7 and §12 say; and `TState` is `{ date, rate }`, not
+`{ jd, daysPerSecond }`. The shapes above were never built as written.
+
+Revised 2026-09-22, for 1C — `reducer` (renamed from `nextState`) becomes the sole state
+machine. Its signature is
+`(state: TState, action: TAction) => TState`, switching on `action.kind` over a
+discriminated union in `types/action.ts`:
+
+- `EActionKind.Tick` (`elapsedMs`) — the date arithmetic above, carrying `focus` through.
+- `EActionKind.Focus` (`targetId`, `startedAt`, `from`, `fromTarget`) — sets `focus`.
+- `EActionKind.Release` — sets `focus` to `null`.
+
+Added 2026-09-22, moving pointer interaction out of `main.ts`: the listeners no longer hold
+a `let down`, so pointer position becomes state and the drag-vs-click rule becomes the pure
+`utils/dragged.ts`. `TState` gains `readonly pointer: TVec2 | null` (`types/vec2.ts`) —
+where the pointer went down, or null when it is up or has been dragged.
+
+- `EActionKind.PointerDown` (`x`, `y`) — records `pointer`.
+- `EActionKind.PointerMove` (`x`, `y`) — past `DRAG_SLOP`, clears `pointer` and `focus`;
+  otherwise returns the state untouched.
+- `EActionKind.PointerUp` (`x`, `y`, `focus`) — always clears `pointer`, and adopts the
+  carried `focus` only when the press was a click, not a drag.
+
+The pointerup listener raycasts speculatively and pushes a complete action; the reducer
+decides click-vs-drag and discards the payload on a drag. That costs one wasted raycast per
+drag-release and keeps the reducer the sole decider.
+
+Each arm is a named type of its own, per the union rule in §2. `TState` gains
+`readonly focus: TFocus | null` (`types/focus.ts`): **intent and interpolation origin only,
+no camera destination**, because the destination re-derives per frame as the planet moves,
+and storing it would put scene-space geometry into the type `simulate` reads.
+
+This is the seam §13 promised rather than a detour around it. A reducer *is* "a function
+from `State` to `State`"; an agent tool call and a mouse click become the same thing, an
+action folded into state. It also avoids inventing a new mutation site for focus — no `let`
+in `main.ts`.
+
+`state/queue.ts` holds `push(action)` and `drain(): readonly TAction[]`. It is the one
+module owning a mutable array: DOM handlers push, the loop drains, and the mutation is
+named in one file rather than smeared across `main.ts`. It is also the one file with two
+exports; `CLAUDE.md` names the exception.
+
 ## 8. Scene
 
 All scene functions build one three.js object from plain inputs and return it. The
-mutation sites in the whole program are: `update`, `resize`, and the loop in `main.ts`
-(which calls `controls.update()` and `renderer.render()`).
+mutation sites in the whole program are: `update`, `resize`, `focus`, and the loop in
+`main.ts` (which calls `controls.update()` and `renderer.render()`).
+
+Revised 2026-09-22, for 1C: the list is four, not three. `scene/focus.ts` is the
+per-frame camera mutation. The alternative was giving `update` a second job or putting
+camera math in the loop; keeping the tween in its own file is worth widening an explicit,
+enforceable rule by one. `CLAUDE.md` is updated to match.
 
 - `createRenderer(canvas)`: `WebGLRenderer` on the `#scene` canvas, antialias on, pixel
   ratio capped at 2, sized to the window. No logarithmic depth buffer.
@@ -484,6 +548,110 @@ The night side of a planet is dim, not black: a low `AmbientLight` prevents pure
 The page: `index.html` keeps the `#scene` canvas; a small stylesheet makes it fill the
 viewport with no margin on a black body, so nothing flashes before the first frame.
 
+Added 2026-09-22, for 1C — the scene functions this phase adds:
+
+- `createLabelRenderer()` → `CSS2DRenderer`, sized to the window, appended as `#labels`.
+  The container is `pointer-events: none` so the overlay never swallows a canvas drag meant
+  for `OrbitControls`; `.label` is `pointer-events: auto`, so the text itself stays clickable.
+- `createLabels(bodies, meshes, camera, controls)` → `ReadonlyMap<string, CSS2DObject>`.
+  One `div` per body, text from `TBody.name`, `data-body-id` set, attached as a child of
+  its mesh so it tracks the planet for free. The click handler pushes a `TFocusAction`.
+- `occluded(body, sun, camera, sunRadius)` → `boolean`. Pure `TVec3` math, no three.js, so
+  it is testable under the `node` vitest environment: project camera→body onto camera→sun,
+  and hide when the body lies beyond the sun and within the shadow cone, which widens with
+  `along / sunDistance`. **A body nearer the camera than the sun is never occluded.** An
+  earlier draft also returned `true` when the projection was negative, reading that as
+  "behind the camera"; it is not — it only means "away from the sun", and it wrongly hid
+  the very planet being focused. `CSS2DRenderer` already culls behind-camera labels itself.
+- `pick(event, camera, meshes)` → `string | null`. Pointer to NDC, `Raycaster.setFromCamera`,
+  intersect the meshes, return `object.name` (set to `body.id` in `createScene`) or null.
+- `focus(state, located, camera, controls, now)` → `void`. Returns at once when
+  `state.focus` is null. Otherwise `k = ease(min(1, (now - startedAt) / DURATION_MS))`,
+  `camera.position.lerpVectors(from, toScene(vantage(...)), k)`, the same for
+  `controls.target`, then `camera.lookAt(controls.target)`; at `k >= 1` it pushes
+  `Release`. It takes the simulated `TLocated[]` rather than the meshes because `vantage`
+  works in the ecliptic frame and `toScene` is one-way — this reuses the single frame-change
+  seam instead of inventing an inverse.
+- `resize(renderer, labels, camera)` → `void`. **The spec named this file in §3, §8, §9,
+  §11 and §12 and assigned it to the assistant, but it was never built and `main.ts`
+  registered no resize listener — the app did not handle resize at all.** It now sets both
+  renderer sizes, the camera aspect, and the projection matrix.
+
+Cleanup pass 2026-09-22 (`/simplify`), after four review agents. The shape above is what
+shipped; these are the seams that moved:
+
+- `scene/radius.ts` — `radius(look)` returns a body's scene-frame radius. `createPlanet`
+  and `focus` both call it; previously each spelled the `radiusKm / KM_PER_AU * RADIUS_SCALE`
+  conversion itself, in two different frames. `RADIUS_SCALE` is a tuning knob the spec
+  reasons about repeatedly, and the second copy would have failed *silently* — the camera
+  simply landing at the wrong standoff. `focus` divides the one shared result by
+  `DISTANCE_SCALE` to reach the ecliptic frame, so the conversion is named in one place.
+- `scene/reveal.ts` — `reveal(labels, meshes, starId, camera)` owns the label-visibility
+  pass that was inline in the frame loop. It reads positions **from the meshes** that
+  `update` just wrote, rather than recomputing `toScene(position)` for every body a second
+  time two lines later. `main.ts` shed four imports and the loop became a flat list of calls.
+  This is a **fifth mutation site**, sibling to `update`; `CLAUDE.md` names it.
+- `scene/focusAction.ts` — builds the `TFocusAction` once. The label click and the canvas
+  pick previously constructed the same six-property literal independently, which is the
+  asymmetry manual testing misses: a missed edit breaks one input path and not the other.
+- `TFocusAction` is now `TFocus & { kind }` rather than a second declaration of the same
+  four fields, and the reducer's Focus arm strips `kind` by rest-destructuring instead of
+  re-listing every field. Two mutants confirm the tests still pin that `kind` must not leak
+  into state.
+- The frame loop folds `drain().reduce(reducer, reducer(state, tick))` — one array per
+  frame instead of two, same order, no spread.
+- Removed: `types/vec2.ts`, a whole type file for one local's annotation, which would have
+  collided with the 2D *scene* meaning the first time anyone needed NDC math.
+
+Skipped deliberately: hoisting `pick`'s `Raycaster`/`Vector2` to module scope (a
+human-speed event, and it would add mutable module state to a cleanly functional file), and
+replacing the hand-rolled drag/click discrimination with OrbitControls' `start` event (it
+would cover "user took control" but cannot answer "was this a click or a drag" for the pick,
+so it replaces two listeners of three). `element.dataset.bodyId` is unread by the app and
+kept as the only external hook on label identity.
+
+Known limitation, recorded rather than quietly redesigned: **focus frames the planet at
+landing, then lets it drift.** When `k` reaches 1, `focus` pushes `Release` and
+`OrbitControls` resumes with a target fixed in space, so a planet keeps orbiting out of
+frame. At `DAYS_PER_SECOND = 2` Mercury laps in about 44 s of wall time and leaves the view
+within a few seconds of arrival; the outer planets stay framed far longer. This is what the
+plan specified ("the loop pushes a `TReleaseAction`, handing control back to
+`OrbitControls`") and it is what shipped, but the acceptance criterion "lands with the
+planet framed" is strictly true only at the landing instant. Making focus *sticky* — keeping
+`controls.target` glued to the body until the user interrupts — is a separate decision about
+whether focus is a one-shot flight or a persistent mode, and belongs with the phase 3/4
+camera work now that §13 is answered.
+
+`camera.lookAt(controls.target)` inside `focus` is load-bearing, not decoration. `focus`
+runs *after* `controls.update()` in the loop so the lerped position is the last word for
+the frame; without the explicit `lookAt` nothing re-aims the camera at the moving target
+and the planet lands off-centre.
+
+Two pure helpers sit outside `scene/` because they import no three.js, the same reasoning
+that puts `add.ts` in `utils/`:
+
+- `utils/vantage.ts` — `vantage(planet, sun, radius, phase?, elevation?)` → `TVec3`.
+  Planet→sun normalised, rotated by `PHASE_ANGLE` about ecliptic up (+z, before `toScene`),
+  lerped toward up by `ELEVATION`, re-normalised, scaled by
+  `max(radius * ZOOM_FACTOR, MIN_APPROACH)`, added to the planet. Deriving the vantage from
+  the *live* sun direction is what gives a night crescent at every planet on every date.
+  Note the frame: `radius` and `MIN_APPROACH` are ecliptic-frame (AU-ish) quantities, so
+  the caller passes `radiusKm / KM_PER_AU * (RADIUS_SCALE / DISTANCE_SCALE)` — `toScene`
+  applies `DISTANCE_SCALE` afterwards, and multiplying twice would bury the camera in the
+  planet.
+- `utils/ease.ts` — `ease(t)` → cubic in-out, clamped to [0,1].
+
+Tunables: `constants/focus.ts` (`PHASE_ANGLE` 0.65 rad ≈ 37°, `ELEVATION` 0.25,
+`ZOOM_FACTOR` 8, `MIN_APPROACH` 0.02, `DURATION_MS` 1200) and `constants/labels.ts`
+(`LABEL_CLASS`, `OCCLUSION_MARGIN`, `LABEL_MIN_DISTANCE`). It is `labels.ts` because
+`constants/annotations.ts` is already taken by the orbit-line tunables. `DRAG_SLOP` joins
+`constants/controls.ts`. The label's vertical offset is a **pixel** value and lives in the
+`.label` CSS rule, not in a scene constant.
+
+Also unrecorded until now: `scene/createHud.ts` and `constants/debug.ts` exist in the
+built code but appear nowhere in this spec, and `update` takes `(meshes, located)`, not
+`(handles, located)` as §8 says.
+
 ## 9. Startup and loop
 
 `main.ts`, in order: find the canvas or throw; build renderer, scene, camera, controls;
@@ -510,6 +678,26 @@ decorative asset. Falling back to an empty map instead makes every `textures.get
 yield `null`, which is precisely the flat-colour path the phase already shipped and tested.
 A failed download therefore costs surface detail and nothing else: the simulation, the
 orbit lines, and the controls are unaffected.
+
+Revised 2026-09-22, for 1C — the loop folds actions instead of taking `elapsedMs`:
+
+```ts
+const next = [{ kind: EActionKind.Tick, elapsedMs: elapsed }, ...drain()]
+  .reduce(reducer, state);
+```
+
+The tick becomes an action like any other and the queue drains into the same fold. State is
+still carried by closure and nothing is reassigned. Ordering inside the frame matters:
+`update` moves the meshes, labels get their `visible` flag from `occluded`, then
+`controls.enabled = next.focus === null`, `controls.update()`, and **`focus` last**, so the
+tween is the final word on the camera; finally `renderer.render` and `labelRenderer.render`.
+
+`main` also builds the label renderer and labels, registers the resize listener and calls it
+once, and registers the pointer handlers. Click-versus-drag is resolved in `main`: a
+`pointerdown` records the position, a `pointermove` beyond `DRAG_SLOP` pixels cancels the
+click and pushes `Release` (so a drag always interrupts a flight), and only a `pointerup`
+that never became a drag runs `pick`. A miss pushes nothing — a background click must not
+yank the camera. A `wheel` also pushes `Release`.
 
 `orbits(bodies, jd)` lives in `data/`, not in `main`. It keys a map by body id, skipping
 the star, with `ellipse(body.orbit.elementsAt(jd), ORBIT_SEGMENTS)` for each. The filter on
@@ -630,6 +818,37 @@ formula error produces errors thousands of times larger and cannot hide inside i
   rather than fact and is recorded here as an open gap, not a claim.
 - `orbits` (added 2026-09-21): no test yet. It is a filter and a map over `ellipse`, which
   is itself well covered, but the skip-the-star behaviour and the id keying are untested.
+- Added 2026-09-22, for 1C. Every pure unit gets a colocated test; the three.js-touching
+  files (`createLabels`, `createLabelRenderer`, `pick`, `focus`, `resize`) get none, because
+  vitest runs in the `node` environment with no DOM. They were verified in the running app
+  instead, and that is recorded as the reason rather than left as a silent gap.
+  - `ease`: 0→0, 1→1, 0.5→0.5, symmetric about the midpoint, monotonic across a 51-point
+    grid, slower than linear early, clamped outside [0,1].
+  - `vantage`: standoff equals `radius × ZOOM_FACTOR`; the `MIN_APPROACH` floor holds for a
+    tiny body; the camera sits sunward of the body; the planar bearing is offset from the
+    planet–sun line by exactly `PHASE_ANGLE`; elevation lifts it above the ecliptic; at zero
+    phase and elevation it lands exactly on the planet–sun line; it follows the sun direction
+    rather than a fixed axis; rotation is about ecliptic up; a body at the sun falls back to
+    a sunward default instead of dividing by zero; inputs come back unmutated.
+  - `occluded`: hidden directly behind the sun; shown in front of it; shown beside it; shown
+    when nearer the camera than the sun; shown on the far side of the camera from the sun;
+    the sun is never occluded by itself; a body grazing the disc is hidden; the cone scales
+    with the sun's radius **and widens with distance beyond it**; and a distant body just
+    past the camera along the anti-sun direction is shown — the regression that the earlier
+    "behind the camera" branch caused.
+  - `queue`: empty drain returns `[]`; a pushed action comes back; order is preserved;
+    drain empties; drain does not hand back a live view of the buffer.
+  - `reducer`: every prior arithmetic case re-expressed as a `Tick` (assertions carried
+    over verbatim), plus focus carried through a tick, focus set from the action without
+    touching date or rate, a focus replaced while in flight, release clearing it, release
+    harmless when nothing is focused, and a run of actions folded in order.
+  - `initial`: starts with `focus: null`.
+
+  Mutation pass (§11.1), 2026-09-22: 24 mutants across `ease`, `vantage`, `occluded`,
+  `queue`, `reducer` and `initial`; 23 killed on the first run. The survivor was dropping
+  the `along / sunDistance` factor from `occluded`'s cone — no test placed two bodies at
+  different distances along the same ray. A widening-cone test was added and the mutant then
+  died. All 24 killed after that.
 
 ## 12. Teaching split
 
@@ -666,6 +885,12 @@ writes the rest and explains each three.js piece as it lands: controls, `update`
   branch per new state field; `simulate` and `propagate` are the read tools as they stand.
   Whether the camera is derived from state or driven by one-shot directives is decided
   then, and both fit this shape.
+
+  **Answered 2026-09-22 by 1C: the camera is derived from state.** `TState.focus` holds
+  intent — target, start time, and the interpolation origin — and `scene/focus.ts` derives
+  the camera position from it every frame. An agent tool is therefore an action pushed onto
+  the same `state/queue.ts` that a label click pushes onto, and `reducer` folds both
+  identically. Nothing about a tool call needs to know it did not come from a mouse.
 - Phase 5 controls: the slider, date input, and rate control write `State` fields; the
   radius scale control replaces where `RADIUS_SCALE` is read.
 - Moons: a source whose bodies have a planet id as `orbit.parent`. `simulate` already
