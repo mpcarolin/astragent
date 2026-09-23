@@ -6,18 +6,23 @@ https://mpcarolin.github.io/astragent/
 
 ## Getting started
 
-### Prequisites
+### Prerequisites
 * Node `24.21.0` or newer
 * [pnpm](https://pnpm.io/)
 
-### Start the dev server
-
+### Setup
 ```sh
 pnpm install
 pnpm dev
 ```
 
+### Usage
+
 Visit http://localhost:5173 in your browser.
 * Scroll to zoom in and out
 * Click and pan to look around
 * Click on the label of any planet to zoom into that planet
+
+### Credits
+
+Planet and sun textures drawn from [Solar System Scope Textures](https://www.solarsystemscope.com/textures/) by INOVE / Solar System Scope, used under [Creative Commons](https://creativecommons.org/licenses/by/4.0/). See [`public/textures/CREDITS.md`](public/textures/CREDITS.md) for the full notice.
