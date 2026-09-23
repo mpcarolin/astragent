@@ -312,7 +312,7 @@ from `State` to `State`"; an agent tool call and a mouse click become the same t
 action folded into state. It also avoids inventing a new mutation site for focus — no `let`
 in `main.ts`.
 
-`state/queue.ts` holds `push(action)` and `drain(): readonly TAction[]`. It is the one
+`state/queue.ts` holds `dispatch(action)` and `drain(): readonly TAction[]`. It is the one
 module owning a mutable array: DOM handlers push, the loop drains, and the mutation is
 named in one file rather than smeared across `main.ts`. It is also the one file with two
 exports; `CLAUDE.md` names the exception.

@@ -35,5 +35,8 @@ export function reducer(state: TState, action: TAction): TState {
         state.pointer !== null && !dragged(state.pointer, action) && action.focus !== null;
       return { ...state, pointer: null, focus: clicked ? action.focus : state.focus };
     }
+
+    default:
+      return state
   }
 }
