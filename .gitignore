@@ -27,3 +27,5 @@ tmp/
 Session.vim
 
 .claude/settings.local.json
+
+.claude/worktrees/
