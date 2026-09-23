@@ -36,6 +36,10 @@ describe("occluded", () => {
     expect(occluded(SUN, SUN, CAMERA, STAR_RADIUS)).toBe(false);
   });
 
+  it("shows the sun itself from a camera off every axis", () => {
+    expect(occluded(SUN, SUN, { x: 1, y: 1, z: 1 }, STAR_RADIUS)).toBe(false);
+  });
+
   it("hides a body grazing the sun's disc", () => {
     expect(occluded({ x: STAR_RADIUS / 2, y: 0, z: -50 }, SUN, CAMERA, STAR_RADIUS)).toBe(true);
   });

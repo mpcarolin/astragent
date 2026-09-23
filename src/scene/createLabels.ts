@@ -18,7 +18,7 @@ export function createLabels(
       const mesh = meshes.get(body.id);
       if (!mesh) return [];
 
-      const element = document.createElement("div");
+      const element = document.createElement("p");
       element.className = LABEL_CLASS;
       element.dataset.bodyId = body.id;
       element.textContent = body.name;
