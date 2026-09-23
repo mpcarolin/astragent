@@ -7,8 +7,8 @@ https://mpcarolin.github.io/astragent/
 ## Getting started
 
 ### Prequisites
-* Node 22.12 or newer
-* pnpm
+* Node `24.21.0` or newer
+* [pnpm](https://pnpm.io/)
 
 ### Start the dev server
 
