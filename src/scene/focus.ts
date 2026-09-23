@@ -9,7 +9,7 @@ import { EBodyKind } from "../types/body";
 import { Vector3 } from "three";
 import { DURATION_MS } from "../constants/focus";
 import { DISTANCE_SCALE } from "../constants/scale";
-import { push } from "../state/queue";
+import { dispatch } from "../state/queue";
 import { ease } from "../utils/ease";
 import { vantage } from "../utils/vantage";
 import { appearance } from "./appearance";
@@ -49,5 +49,5 @@ export function focus(
   );
   camera.lookAt(controls.target);
 
-  if (k >= 1) push({ kind: EActionKind.Release });
+  if (k >= 1) dispatch({ kind: EActionKind.Release });
 }

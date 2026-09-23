@@ -1,11 +1,17 @@
 import type { TAction } from "../types/action";
 
-const pending: TAction[] = [];
+const queue: TAction[] = [];
 
-export function push(action: TAction): void {
-  pending.push(action);
+/**
+ * Queues up an action to be run at the next tick of the game loop
+ */
+export function dispatch(action: TAction): void {
+  queue.push(action);
 }
 
-export function drain(): readonly TAction[] {
-  return pending.splice(0, pending.length);
+/**
+ * Empty queue of all actions, return as array.
+ */
+export function drain(): TAction[] {
+  return queue.splice(0, queue.length);
 }

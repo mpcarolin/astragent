@@ -4,7 +4,7 @@ import type { TBody } from "../types/body";
 
 import { CSS2DObject } from "three/addons/renderers/CSS2DRenderer.js";
 import { LABEL_CLASS } from "../constants/labels";
-import { push } from "../state/queue";
+import { dispatch } from "../state/queue";
 import { focusAction } from "./focusAction";
 
 export function createLabels(
@@ -23,7 +23,7 @@ export function createLabels(
       element.dataset.bodyId = body.id;
       element.textContent = body.name;
       element.addEventListener("click", () =>
-        push(focusAction(body.id, camera, controls)),
+        dispatch(focusAction(body.id, camera, controls)),
       );
 
       const label = new CSS2DObject(element);
