@@ -3,13 +3,11 @@ import type { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import type { TLocated } from "../types/located";
 import type { TState } from "../types/state";
 
-import { EActionKind } from "../types/action";
 import { EBodyKind } from "../types/body";
 
 import { Vector3 } from "three";
 import { DURATION_MS } from "../constants/focus";
 import { DISTANCE_SCALE } from "../constants/scale";
-import { dispatch } from "../state/queue";
 import { ease } from "../utils/ease";
 import { vantage } from "../utils/vantage";
 import { appearance } from "./appearance";
@@ -48,6 +46,4 @@ export function focus(
     k,
   );
   camera.lookAt(controls.target);
-
-  if (k >= 1) dispatch({ kind: EActionKind.Release });
 }

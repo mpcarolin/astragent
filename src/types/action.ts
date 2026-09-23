@@ -3,7 +3,7 @@ import type { TFocus } from "./focus";
 export enum EActionKind {
   Tick = "tick",
   Focus = "focus",
-  Release = "release",
+  FocusRelease = "release",
   PointerDown = "pointerDown",
   PointerMove = "pointerMove",
   PointerUp = "pointerUp",
@@ -19,7 +19,7 @@ export type TFocusAction = TFocus & {
 };
 
 export type TReleaseAction = {
-  readonly kind: EActionKind.Release;
+  readonly kind: EActionKind.FocusRelease;
 };
 
 export type TPointerDownAction = {

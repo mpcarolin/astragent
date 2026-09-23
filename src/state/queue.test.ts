@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { EActionKind } from "../types/action";
 import { drain, dispatch } from "./queue";
 
-const release = { kind: EActionKind.Release } as const;
+const release = { kind: EActionKind.FocusRelease } as const;
 const tick = { kind: EActionKind.Tick, elapsedMs: 16 } as const;
 
 describe("queue", () => {

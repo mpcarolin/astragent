@@ -24,5 +24,5 @@ export function registerListeners(handles: TListeners): void {
     dispatch(pointerUp(event, camera, controls, bodies));
   });
 
-  canvas.addEventListener("wheel", () => dispatch({ kind: EActionKind.Release }));
+  canvas.addEventListener("wheel", () => dispatch({ kind: EActionKind.FocusRelease }));
 }

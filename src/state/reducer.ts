@@ -19,7 +19,7 @@ export function reducer(state: TState, action: TAction): TState {
       return { ...state, focus };
     }
 
-    case EActionKind.Release:
+    case EActionKind.FocusRelease:
       return { ...state, focus: null };
 
     case EActionKind.PointerDown:

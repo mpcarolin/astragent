@@ -8,7 +8,7 @@ import { EActionKind } from "../types/action";
 import { reducer } from "./reducer";
 
 const tick = (elapsedMs: number) => ({ kind: EActionKind.Tick, elapsedMs }) as const;
-const release = { kind: EActionKind.Release } as const;
+const release = { kind: EActionKind.FocusRelease } as const;
 
 const focusAction = {
   kind: EActionKind.Focus,
