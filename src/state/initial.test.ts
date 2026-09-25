@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { DAYS_PER_SECOND } from "../constants/time";
+import { INITIAL_RATE } from "../constants/time";
 import { initial } from "./initial";
 
 describe("initial", () => {
@@ -17,7 +17,7 @@ describe("initial", () => {
   });
 
   it("starts at the configured rate", () => {
-    expect(initial(new Date()).rate).toBe(DAYS_PER_SECOND);
+    expect(initial(new Date()).rate).toBe(INITIAL_RATE);
   });
 
   it("starts with no focus", () => {

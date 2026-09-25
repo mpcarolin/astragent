@@ -1,23 +1,34 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
+import type { Mesh } from "three";
 import type { TAppearance } from "../types/appearance";
 
-import { MeshStandardMaterial, SphereGeometry, SRGBColorSpace, Texture } from "three";
+import { MeshStandardMaterial, SphereGeometry, Vector3 } from "three";
 
 import { KM_PER_AU } from "../constants/astronomy";
+import { AXIAL_TILT } from "../constants/debug";
 import { RADIUS_SCALE } from "../constants/scale";
 import { createPlanet } from "./createPlanet";
 
-const look: TAppearance = { color: 0x4488ff, radiusKm: 6371, texture: "2k_earth_daymap.jpg" };
+vi.mock("./loadTexture", async () => {
+  const { Texture } = await import("three");
+  return {
+    loadTexture: async (file: string) =>
+      file === "missing.jpg" ? null : Object.assign(new Texture(), { name: file }),
+  };
+});
 
-function material(mesh: ReturnType<typeof createPlanet>): MeshStandardMaterial {
+const look: TAppearance = { color: 0x4488ff, radiusKm: 6371, texture: "2k_earth_daymap.jpg" };
+const missing: TAppearance = { ...look, texture: "missing.jpg" };
+
+function material(mesh: Mesh): MeshStandardMaterial {
   expect(mesh.material).toBeInstanceOf(MeshStandardMaterial);
   return mesh.material as MeshStandardMaterial;
 }
 
 describe("createPlanet", () => {
-  it("scales the physical radius into scene units", () => {
-    const geometry = createPlanet(look, null).geometry;
+  it("scales the physical radius into scene units", async () => {
+    const geometry = (await createPlanet(look)).geometry;
     expect(geometry).toBeInstanceOf(SphereGeometry);
     expect((geometry as SphereGeometry).parameters.radius).toBeCloseTo(
       (6371 / KM_PER_AU) * RADIUS_SCALE,
@@ -25,33 +36,31 @@ describe("createPlanet", () => {
     );
   });
 
-  it("applies the passed texture as the colour map", () => {
-    const texture = new Texture();
-    expect(material(createPlanet(look, texture)).map).toBe(texture);
+  it("applies the appearance's texture as the colour map", async () => {
+    expect(material(await createPlanet(look)).map?.name).toBe(look.texture);
   });
 
-  it("leaves the map empty when no texture is given", () => {
-    expect(material(createPlanet(look, null)).map).toBe(null);
+  it("leaves the map empty when the texture fails to load", async () => {
+    expect(material(await createPlanet(missing)).map).toBe(null);
   });
 
-  it("falls back to the appearance colour when there is no texture", () => {
-    expect(material(createPlanet(look, null)).color.getHex()).toBe(look.color);
+  it("falls back to the appearance colour when the texture fails to load", async () => {
+    expect(material(await createPlanet(missing)).color.getHex()).toBe(missing.color);
   });
 
-  it("does not tint the texture with the appearance colour", () => {
-    const texture = new Texture();
-    expect(material(createPlanet(look, texture)).color.getHex()).toBe(0xffffff);
+  it("does not tint the texture with the appearance colour", async () => {
+    expect(material(await createPlanet(look)).color.getHex()).toBe(0xffffff);
   });
 
-  it("stays matte whether or not a texture is present", () => {
-    const lit = material(createPlanet(look, new Texture()));
+  it("stays matte whether or not a texture is present", async () => {
+    const lit = material(await createPlanet(look));
     expect(lit.roughness).toBe(1);
     expect(lit.metalness).toBe(0);
   });
 
-  it("does not change the colour space of the texture it is handed", () => {
-    const texture = new Texture();
-    texture.colorSpace = SRGBColorSpace;
-    expect(material(createPlanet(look, texture)).map?.colorSpace).toBe(SRGBColorSpace);
+  it("leans its pole away from ecliptic north by the axial tilt", async () => {
+    const up = new Vector3(0, 1, 0);
+    const pole = up.clone().applyQuaternion((await createPlanet(look)).quaternion);
+    expect(pole.angleTo(up)).toBeCloseTo(AXIAL_TILT, 12);
   });
 });

@@ -1,4 +1,4 @@
-import type { Mesh, Texture } from "three";
+import type { Mesh } from "three";
 import type { TBody } from "../types/body";
 import type { THandles } from "../types/handles";
 import type { TVec3 } from "../types/vec3";
@@ -13,24 +13,24 @@ import { createOrbitLines } from "./createOrbitLines";
 import { createPlanet } from "./createPlanet";
 import { createStar } from "./createStar";
 
-export function createScene(
+export async function createScene(
   solar: readonly TBody[],
   orbits: ReadonlyMap<string, readonly TVec3[]>,
-  textures: ReadonlyMap<string, Texture>,
-): THandles {
+): Promise<THandles> {
   const scene = new Scene();
   scene.background = backdrop();
 
   const bodies = new Map<string, Mesh>(
-    solar.map((body) => {
-      const look = appearance[body.id];
-      if (!look) throw new Error(`no appearance for body "${body.id}"`);
-      const map = textures.get(body.id) ?? null;
-      const mesh =
-        body.kind === EBodyKind.Star ? createStar(look, map) : createPlanet(look, map);
-      mesh.name = body.id;
-      return [body.id, mesh];
-    }),
+    await Promise.all(
+      solar.map(async (body): Promise<readonly [string, Mesh]> => {
+        const look = appearance[body.id];
+        if (!look) throw new Error(`no appearance for body "${body.id}"`);
+        const mesh =
+          body.kind === EBodyKind.Star ? await createStar(look) : await createPlanet(look);
+        mesh.name = body.id;
+        return [body.id, mesh];
+      }),
+    ),
   );
   bodies.forEach((body) => scene.add(body));
 

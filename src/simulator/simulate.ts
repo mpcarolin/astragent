@@ -6,18 +6,32 @@ import { EBodyKind } from "../types/body";
 
 import { add } from "../utils/add";
 import { propagate } from "./propagate";
+import type { TState } from "../types/state";
 
-export function simulate(bodies: readonly TBody[], jd: number): readonly TLocated[] {
+export function simulate(bodies: readonly TBody[], state: TState): readonly TLocated[] {
+  const { date } = state;
   const byId = new Map(bodies.map((body) => [body.id, body]));
 
   const absolute = (body: TBody, seen: readonly string[]): TVec3 => {
-    if (body.kind === EBodyKind.Star) return propagate(body, jd);
-    if (seen.includes(body.id)) throw new Error(`orbit cycle through "${body.id}"`);
+    if (body.kind === EBodyKind.Star) {
+      return propagate(body, date);
+    }
+    if (seen.includes(body.id)) {
+      throw new Error(`orbit cycle through "${body.id}"`);
+    }
 
     const parent = byId.get(body.orbit.parent);
-    if (!parent) throw new Error(`no body with id "${body.orbit.parent}"`);
+    if (!parent) {
+      throw new Error(`no body with id "${body.orbit.parent}"`);
+    }
 
-    return add(absolute(parent, [...seen, body.id]), propagate(body, jd));
+    return add(
+      absolute(
+        parent,
+        [...seen, body.id]
+      ),
+      propagate(body, date)
+    );
   };
 
   return bodies.map((body) => ({ body, position: absolute(body, []) }));

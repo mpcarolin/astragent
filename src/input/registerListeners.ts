@@ -25,6 +25,12 @@ export function registerListeners(handles: TListeners): void {
     }
   });
 
+  window.addEventListener("keydown", (event) => {
+    if (event.key === " " || event.code === "Space") {
+      dispatch({ kind: EActionKind.ToggleRate });
+    }
+  });
+
   window.addEventListener("resize", () => resize(renderer, labelRenderer, camera));
   resize(renderer, labelRenderer, camera);
 

@@ -34,6 +34,22 @@
       pointer-events: none;
     }
 
+    #hud .axis-x {
+      color: #ff5555;
+    }
+
+    #hud .axis-y {
+      color: #55ff55;
+    }
+
+    #hud .axis-z {
+      color: #5599ff;
+    }
+
+    #hud .rate {
+      color: #cccccc;
+    }
+
     #labels {
       position: fixed;
       top: 0;
@@ -60,6 +76,15 @@
 
 <body>
   <canvas id="scene"></canvas>
+  <div id="hud">
+    <span id="hud-x" class="axis-x">x <output></output></span>
+    <span id="hud-y" class="axis-y">y <output></output></span>
+    <span id="hud-z" class="axis-z">z <output></output></span>
+    <span id="hud-rx" class="axis-x">rx <output></output></span>
+    <span id="hud-ry" class="axis-y">ry <output></output></span>
+    <span id="hud-rz" class="axis-z">rz <output></output></span>
+    <span id="hud-rate" class="rate">rate <output></output></span>
+  </div>
   <script type="module" src="/src/main.ts"></script>
 </body>
 

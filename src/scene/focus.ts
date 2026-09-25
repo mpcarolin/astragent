@@ -32,7 +32,7 @@ export function focus(
   const look = appearance[flight.targetId];
   if (!target || !star || !look) return;
 
-  const standoff = radius(look) / DISTANCE_SCALE;
+  const standoff = radius(look.radiusKm) / DISTANCE_SCALE;
   const k = ease(Math.min(1, (now - flight.startedAt) / DURATION_MS));
 
   camera.position.lerpVectors(

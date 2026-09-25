@@ -12,6 +12,6 @@ export function dispatch(action: TAction): void {
 /**
  * Empty queue of all actions, return as array.
  */
-export function drain(): TAction[] {
+export function drainActionQueue(): TAction[] {
   return queue.splice(0, queue.length);
 }

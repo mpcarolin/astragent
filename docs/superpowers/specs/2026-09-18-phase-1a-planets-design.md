@@ -98,7 +98,7 @@ src/
     backdrop.ts
     createStar.ts  createPlanet.ts  createAmbient.ts  toScene.ts  update.ts  resize.ts
     createOrbitLines.ts
-    loadTextures.ts       the one async function; body ids to loaded textures
+    loadTexture.ts        one file name to its loaded texture, or null (revised 2026-09-24)
 public/
   textures/               the nine 2048 x 1024 body maps, served as static assets
     CREDITS.md            the CC BY 4.0 attribution the licence requires
@@ -504,6 +504,23 @@ enforceable rule by one. `CLAUDE.md` is updated to match.
   Loading is hoisted above the scene graph rather than threaded into it. `createScene`,
   `createPlanet`, and `createStar` stay synchronous and pure; only `main` awaits. This is
   why the map is a parameter and not a lookup — see the three signature changes below.
+
+  Revised 2026-09-24, when Saturn's ring needed a second texture: `loadTextures` is gone,
+  replaced by `loadTexture(file)`, which loads one file name and resolves
+  `Promise<Texture | null>`. The map keyed by body id assumed one texture per body, and a
+  ring is a second texture on the same body with nowhere to go in it. `loadTexture` keeps
+  everything above that is about a single texture: a `TextureLoader` with its path set to
+  `TEXTURE_PATH`, `loadAsync` rather than `load`, the explicit `SRGBColorSpace` tag, and
+  `TEXTURE_ANISOTROPY`. A rejected load is caught inside it and resolves `null`, so one
+  missing file costs that one body its surface and nothing else — the fallback `main`'s
+  `.catch(() => new Map())` used to give the whole set at once, now given per file.
+
+  This reverses the hoisting in the paragraph above. Each builder loads its own texture
+  straight from its appearance, with no intermediate map, so `createPlanet`, `createStar`,
+  and `createScene` are async and do I/O. The trade is deliberate: a builder that fetches
+  what its own appearance names is the natural design, and threading loaded textures down
+  through parameters only to keep the builders pure would make the source worse to make the
+  tests easier. §11.1 records how the tests cope.
 - `createStar` and `createPlanet` take a second parameter, `Texture | null`
   (revised 2026-09-22). The texture becomes the material's `map`. When a map is present the
   material's `color` is `UNTINTED` (white) rather than the appearance colour, because
@@ -512,6 +529,11 @@ enforceable rule by one. `CLAUDE.md` is updated to match.
   When the map is `null` the appearance colour is used exactly as before, so the flat
   spheres this phase shipped with remain the fallback rather than a lost branch.
 
+  Revised 2026-09-24: the second parameter is gone. `createPlanet(appearance)` and
+  `createStar(look)` are async, resolve `Promise<Mesh>`, and begin by awaiting
+  `loadTexture` on the appearance's own `texture`. What they do with the result is
+  unchanged: a texture becomes the untinted `map`, and `null` leaves the appearance colour.
+
   The sun is textured too, on a `MeshBasicMaterial`. Unlit is correct for a star — it is the
   light source, so it should not be shaded by one — and a basic material still samples a
   `map`, so the granulation shows without any lighting contribution.
@@ -519,6 +541,12 @@ enforceable rule by one. `CLAUDE.md` is updated to match.
   from `loadTextures`. Per body it passes `textures.get(body.id) ?? null` down to
   `createStar` or `createPlanet`. The function stays synchronous, and an absent id is not an
   error — it is the flat-colour fallback.
+
+  Revised 2026-09-24: back to two parameters, `createScene(solar, orbits)`, now async and
+  resolving `Promise<THandles>`. It builds the body meshes through one `Promise.all` over
+  `solar`, so every texture still loads in parallel, and everything else — mesh names, orbit
+  lines, ambient — is unchanged. A missing texture is still not an error; a missing
+  appearance still is, and now rejects rather than throws.
 - `createOrbitLines(points)` (added 2026-09-21): a `LineLoop` over the already-scaled
   scene positions of `points`, one three-component vertex each in a `Float32Array` handed
   to `BufferGeometry.setAttribute("position", …)`, written by computed offset the way
@@ -652,6 +680,13 @@ Also unrecorded until now: `scene/createHud.ts` and `constants/debug.ts` exist i
 built code but appear nowhere in this spec, and `update` takes `(meshes, located)`, not
 `(handles, located)` as §8 says.
 
+Revised 2026-09-24: `createHud` is gone. The HUD's markup is static in `index.html`, beside
+the `#scene` canvas: six `<span>`s whose labels are text and whose values are `<output>`
+elements, coloured per axis by `nth-child` rules in the same stylesheet. `scene/updateHud.ts`
+writes the camera's position and rotation into those outputs each frame, and `main` looks
+up `#hud` the way it looks up `#scene` and skips the update when it is absent. The markup
+is now the switch, so `HUD` and `AXIS_COLORS` left `constants/debug.ts`; `PRECISION` stays.
+
 ## 9. Startup and loop
 
 `main.ts`, in order: find the canvas or throw; build renderer, scene, camera, controls;
@@ -678,6 +713,14 @@ decorative asset. Falling back to an empty map instead makes every `textures.get
 yield `null`, which is precisely the flat-colour path the phase already shipped and tested.
 A failed download therefore costs surface detail and nothing else: the simulation, the
 orbit lines, and the controls are unaffected.
+
+Revised 2026-09-24: `main` no longer imports a loader. It awaits `createScene(solar,
+orbits(solar, start.date))` and passes no textures, since each builder loads its own (§8).
+The `.catch(() => new Map())` went with the map it produced; the same guarantee now lives
+per file in `loadTexture`, which resolves `null` on failure, so a missing map still costs
+only that body's surface and the frame loop still starts. `main` still awaits exactly once,
+so startup pays nothing new, but it is no longer the only file that awaits: the three
+builders do too.
 
 Revised 2026-09-22, for 1C — the loop folds actions instead of taking `elapsedMs`:
 
@@ -733,6 +776,18 @@ an iteration cap and the tests show it never reaches it.
   three.js objects, which need no GPU. `createRenderer`, `createControls`, and `resize`
   need a browser and are verified by running the app, not by unit tests. If a mock ever
   looks necessary, it is raised as a design question first.
+
+  Revised 2026-09-24: raised, and ruled on, for texture loading. Once `createPlanet` and
+  `createStar` load their own textures (§8), they do I/O the `node` environment cannot run,
+  because `TextureLoader` needs a DOM image. The ruling is that source code is never made
+  worse to make it testable, so the design stays and the test gives:
+  `createPlanet.test.ts` and `createStar.test.ts` each `vi.mock("./loadTexture")` and
+  nothing else. The mock is plain data — a factory resolving a real `Texture` named after
+  the requested file, or `null` for the sentinel `"missing.jpg"` — with no `vi.fn` and no
+  call assertions. Mocking pure code, `vi.fn`, and snapshots remain out. What the mock
+  cannot see, the sRGB tag and anisotropy set inside `loadTexture`, is checked by running
+  the app; the old test that a handed-in texture's colour space survives went with the
+  parameter that handed it in.
 - Every test fails when its code is broken or removed. Expected values never come from the
   code under test or its formula: they come from Horizons, a defining property, a
   hand-derived analytic case, or a textbook constant. No snapshot tests. Analytic cases
