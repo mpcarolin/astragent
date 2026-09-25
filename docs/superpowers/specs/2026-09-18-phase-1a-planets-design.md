@@ -39,6 +39,39 @@ Teaching protocol suspended for this phase at the owner's request: §12's split 
 apply to 1C, and the assistant wrote every file. Recorded so §12 reads as paused, not
 violated.
 
+Axial tilt (pulled into 1A 2026-09-25): every planet had leaned by one constant,
+`AXIAL_TILT`, which was Saturn's 26.73° about the scene's z axis. The angle was right for
+Saturn only, and the direction of the lean was arbitrary for all eight. Each planet's
+appearance now carries a `pole`, the unit vector of its north pole in the ecliptic J2000
+frame. `applyTilt`, called by `createPlanet`, turns the sphere's local +Y onto
+`toScene(pole)`, normalised, with `quaternion.setFromUnitVectors`, the shortest rotation
+between two unit vectors. It is used rather than a hand-built `rotateOnAxis` about
++Y × pole, which is what it computes, because it also handles a pole at exactly −Y, where
+that cross product is zero. The mesh is new, so setting its quaternion rather than
+composing onto it loses nothing. `createRing` moved to its own file at the same time,
+unchanged. The ring needs no tilt of its own: it is a child in the planet's local xz plane, so it lands in the true equatorial
+plane. `AXIAL_TILT` is deleted. Only tilt is modelled, and nothing spins.
+
+The poles come from the IAU WGCCRE 2015 report (Archinal et al. 2018, CMDA 130:22), copied
+from NAIF's `pck00011.tpc`. Each pole's right ascension and declination is evaluated at
+J2000 with its periodic terms. Without those terms Mars is off by 1.3° and Neptune by
+0.5°. Each pole is rotated into the ecliptic with ε = 84381.448″, the value Horizons uses
+for the fixtures' frame. The derivation is `docs/research/2026-09-25-planet-poles.py`.
+They are fixed at J2000 and stored as constants, with no runtime IAU evaluator. A pole
+moves at most 0.6° per century (Earth's), so the stored value is within 0.15° today.
+
+The pole is the IAU north pole, not the spin pole, because textures are drawn north-up.
+For Venus and Uranus, which rotate retrograde, the two point opposite ways. The pole is a
+vector rather than an angle because one angle gives how far the axis leans but not which
+way. The tests check both. The angle from each pole to its J2000 orbit normal matches
+NASA's Planetary Fact Sheet obliquity within 0.05°, and 180° minus it for Venus and Uranus.
+The Sun's elevation above the equator matches published equinox and solstice dates for
+Earth, Saturn, Uranus, and Mars within 0.25°. `pole` is optional on `TAppearance` because
+the Sun shares the type and has no pole.
+
+The teaching protocol was suspended for this change at the owner's request, as in 1C, and
+the assistant wrote every file.
+
 ## 2. Conventions
 
 - One exported function per file, and the file is named exactly after that function. Names

@@ -2,11 +2,11 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { Mesh } from "three";
 import type { TAppearance } from "../types/appearance";
+import type { TVec3 } from "../types/vec3";
 
-import { MeshStandardMaterial, SphereGeometry, Vector3 } from "three";
+import { MeshStandardMaterial, Quaternion, SphereGeometry, Vector3 } from "three";
 
 import { KM_PER_AU } from "../constants/astronomy";
-import { AXIAL_TILT } from "../constants/debug";
 import { RADIUS_SCALE } from "../constants/scale";
 import { createPlanet } from "./createPlanet";
 
@@ -20,10 +20,22 @@ vi.mock("./loadTexture", async () => {
 
 const look: TAppearance = { color: 0x4488ff, radiusKm: 6371, texture: "2k_earth_daymap.jpg" };
 const missing: TAppearance = { ...look, texture: "missing.jpg" };
+const ringed: TAppearance = {
+  ...look,
+  pole: { x: 0, y: 0.397777, z: 0.917482 },
+  ring: { color: 0xead6b8, innerRadiusKm: 67_000, outerRadiusKm: 137_000 },
+};
+const earthPoleInScene: TVec3 = { x: 0, y: 0.917482, z: -0.397777 };
 
 function material(mesh: Mesh): MeshStandardMaterial {
   expect(mesh.material).toBeInstanceOf(MeshStandardMaterial);
   return mesh.material as MeshStandardMaterial;
+}
+
+function expectAlong(actual: Vector3, expected: TVec3): void {
+  expect(actual.x).toBeCloseTo(expected.x, 6);
+  expect(actual.y).toBeCloseTo(expected.y, 6);
+  expect(actual.z).toBeCloseTo(expected.z, 6);
 }
 
 describe("createPlanet", () => {
@@ -58,9 +70,11 @@ describe("createPlanet", () => {
     expect(lit.metalness).toBe(0);
   });
 
-  it("leans its pole away from ecliptic north by the axial tilt", async () => {
-    const up = new Vector3(0, 1, 0);
-    const pole = up.clone().applyQuaternion((await createPlanet(look)).quaternion);
-    expect(pole.angleTo(up)).toBeCloseTo(AXIAL_TILT, 12);
+  it("points the ring's normal along the pole", async () => {
+    const normals = (await createPlanet(ringed)).children.map((ring) =>
+      new Vector3(0, 0, 1).applyQuaternion(ring.getWorldQuaternion(new Quaternion())),
+    );
+    expect(normals).toHaveLength(1);
+    normals.forEach((normal) => expectAlong(normal, earthPoleInScene));
   });
 });

@@ -1,8 +1,11 @@
+import type { TVec3 } from "./vec3";
+
 export type TAppearance = {
   readonly color: number;
   readonly radiusKm: number;
   readonly texture: string;
   readonly ring?: TRingAppearance;
+  readonly pole?: TVec3;
 };
 
 export type TRingAppearance = {
