@@ -4,6 +4,7 @@ import type { TVec2 } from "../types/vec2";
 
 import { describe, expect, it } from "vitest";
 
+import { INITIAL_RATE } from "../constants/time";
 import { EActionKind } from "../types/action";
 import { reducer } from "./reducer";
 
@@ -92,8 +93,8 @@ describe("reducer", () => {
       expect(reducer(state(2451545, 5), focusAction).date).toBe(2451545);
     });
 
-    it("leaves the rate untouched", () => {
-      expect(reducer(state(2451545, 5), focusAction).rate).toBe(5);
+    it("stops the clock", () => {
+      expect(reducer(state(2451545, 5), focusAction).rate).toBe(0);
     });
 
     it("replaces a focus already in flight", () => {
@@ -114,6 +115,10 @@ describe("reducer", () => {
 
     it("is harmless when nothing is focused", () => {
       expect(reducer(state(2451545, 5), release).focus).toBeNull();
+    });
+
+    it("restarts the clock at the initial rate", () => {
+      expect(reducer(state(2451545, 0, focus), release).rate).toBe(INITIAL_RATE);
     });
   });
 
@@ -233,7 +238,8 @@ describe("reducer", () => {
   it("folds a run of actions in order", () => {
     const actions = [tick(1000), focusAction, tick(1000), release];
     const end = actions.reduce(reducer, state(2451545, 1));
-    expect(end.date).toBeCloseTo(2451547, 10);
+    expect(end.date).toBeCloseTo(2451546, 10);
     expect(end.focus).toBeNull();
+    expect(end.rate).toBe(INITIAL_RATE);
   });
 });

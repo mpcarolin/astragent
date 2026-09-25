@@ -48,7 +48,7 @@ export async function createPlanet(appearance: TAppearance): Promise<Mesh> {
     }),
   );
 
-  // planet.rotateZ(AXIAL_TILT);
+  planet.rotateZ(AXIAL_TILT);
 
   if (ring) {
     planet.add(await createRing(ring));
