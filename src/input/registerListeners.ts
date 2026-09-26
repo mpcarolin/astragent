@@ -11,7 +11,12 @@ import { createFocusAction } from "../scene/createFocusAction";
 export function registerListeners(handles: TListeners): void {
   const { canvas, camera, controls, bodies, renderer, labelRenderer } = handles;
 
-  window.addEventListener("keyup", (event) => {
+  window.addEventListener("keydown", (event) => {
+    if (event.repeat) {
+      return;
+    }
+
+    // planet focus shortcuts
     if (/[0-9]/.test(event.key)) {
       const index = parseInt(event.key);
 
@@ -21,17 +26,15 @@ export function registerListeners(handles: TListeners): void {
       const body = bodies.get(name);
       if (!body) return;
 
-      dispatch(createFocusAction(name, camera, controls));
+      return dispatch(createFocusAction(name, camera, controls));
     }
-  });
 
-  window.addEventListener("keydown", (event) => {
-    if (event.repeat) {
-      return;
-    }
+    // play/pause with space
     if (event.key === " " || event.code === "Space") {
       dispatch({ kind: EActionKind.ToggleRate });
     }
+
+    // release focus with escape
     if (event.key === "Escape") {
       dispatch(createFocusAction(null, camera, controls));
     }
