@@ -6,4 +6,4 @@ import { SCENE_RADIUS } from "./scale";
 export const FOV = 50;
 export const NEAR = 0.01;
 export const FAR = MAX_DISTANCE + SCENE_RADIUS;
-export const START_POSITION: TVec3 = { x: 0, y: 150, z: 0 };
+export const START_POSITION: TVec3 = { x: 150, y: 150, z: 100 };
