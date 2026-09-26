@@ -6,6 +6,7 @@ import type { TVec3 } from "../types/vec3";
 import { EBodyKind } from "../types/body";
 
 import { Scene } from "three";
+import { BACKDROP_TEXTURE } from "../constants/space";
 import { appearance } from "./appearance";
 import { backdrop } from "./backdrop";
 import { createAmbient } from "./createAmbient";
@@ -18,7 +19,7 @@ export async function createScene(
   orbits: ReadonlyMap<string, readonly TVec3[]>,
 ): Promise<THandles> {
   const scene = new Scene();
-  scene.background = backdrop();
+  scene.background = await backdrop(BACKDROP_TEXTURE);
 
   const bodies = new Map<string, Mesh>(
     await Promise.all(
