@@ -1,36 +1,24 @@
-import type { Mesh, PerspectiveCamera } from "three";
+import type { Mesh, PerspectiveCamera, Scene } from "three";
 import type { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import type { TBody } from "../types/body";
+import type { TLabels } from "../types/handles";
 
-import { CSS2DObject } from "three/addons/renderers/CSS2DRenderer.js";
-import { LABEL_CLASS } from "../constants/labels";
-import { dispatch } from "../state/queue";
-import { focusAction } from "./focusAction";
+import { createBubble } from "./createBubble";
+import { createNames } from "./createNames";
 
-export function createLabels(
-  bodies: readonly TBody[],
-  meshes: ReadonlyMap<string, Mesh>,
-  camera: PerspectiveCamera,
-  controls: OrbitControls,
-): ReadonlyMap<string, CSS2DObject> {
-  return new Map(
-    bodies.flatMap((body) => {
-      const mesh = meshes.get(body.id);
-      if (!mesh) return [];
+type TCreateLabelsParams = {
+  readonly scene: Scene;
+  readonly bodies: readonly TBody[];
+  readonly meshes: ReadonlyMap<string, Mesh>;
+  readonly camera: PerspectiveCamera;
+  readonly controls: OrbitControls;
+};
 
-      const element = document.createElement("p");
-      element.className = LABEL_CLASS;
-      element.dataset.bodyId = body.id;
-      element.textContent = body.name;
-      element.addEventListener("click", () =>
-        dispatch(focusAction(body.id, camera, controls)),
-      );
+export function createLabels(params: TCreateLabelsParams): TLabels {
+  const { scene, bodies, meshes, camera, controls } = params;
 
-      const label = new CSS2DObject(element);
-      label.center.set(0.5, 1);
-      mesh.add(label);
-
-      return [[body.id, label] as const];
-    }),
-  );
+  return {
+    names: createNames({ bodies, meshes, camera, controls }),
+    bubble: createBubble(scene, camera, controls),
+  };
 }

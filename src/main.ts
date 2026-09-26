@@ -1,7 +1,6 @@
 import type { TState } from "./types/state";
 
 import { EActionKind } from "./types/action";
-import { EBodyKind } from "./types/body";
 
 import { createCamera } from "./scene/createCamera";
 import { createControls } from "./scene/createControls";
@@ -11,9 +10,9 @@ import { createRenderer } from "./scene/createRenderer";
 import { createScene } from "./scene/createScene";
 import { focus } from "./scene/focus";
 import { hmr } from "./scene/hmr";
-import { reveal } from "./scene/reveal";
 import { update } from "./scene/update";
 import { updateHud } from "./scene/updateHud";
+import { updateLabels } from "./scene/updateLabels";
 import { registerListeners } from "./input/registerListeners";
 import { orbits } from "./data/orbits";
 import { solar } from "./data/solar";
@@ -21,6 +20,7 @@ import { simulate } from "./simulator/simulate";
 import { initial } from "./state/initial";
 import { drainActionQueue } from "./state/queue";
 import { reducer } from "./state/reducer";
+import { isFocusComplete } from "./utils/isFocusComplete";
 
 const hud = document.querySelector<HTMLElement>("#hud");
 
@@ -35,9 +35,8 @@ const camera = createCamera();
 const renderer = createRenderer(canvas);
 const labelRenderer = createLabelRenderer();
 const controls = createControls(camera, canvas);
-const starId = solar.find(({ kind }) => kind === EBodyKind.Star)?.id ?? "";
 const { scene, bodies } = await createScene(solar, orbits(solar, initialState.date));
-const labels = createLabels(solar, bodies, camera, controls);
+const labels = createLabels({ scene, bodies: solar, meshes: bodies, camera, controls });
 
 registerListeners({ canvas, camera, controls, bodies, renderer, labelRenderer });
 
@@ -58,15 +57,15 @@ function loop(state: TState, previous: number) {
     const located = simulate(solar, next);
 
     update(bodies, located);
-    reveal(labels, bodies, starId, camera);
 
     if (hud) {
       updateHud(hud, camera, state);
     }
 
-    controls.enabled = next.focus === null;
+    controls.enabled = isFocusComplete(next.focus, timestamp);
     controls.update();
-    focus(next, located, camera, controls, timestamp);
+    focus({ state: next, located, camera, controls, now: timestamp, previous });
+    updateLabels({ labels, state: next, located, meshes: bodies, camera, now: timestamp });
     renderer.render(scene, camera);
     labelRenderer.render(scene, camera);
 

@@ -9,7 +9,7 @@ export type TState = {
   readonly rate: number;
 
   /** the camera flight in progress, or null when the user has control. */
-  readonly focus: TFocus | null;
+  readonly focus: TFocus;
 
   /** where the pointer went down, or null when it is up or has been dragged. */
   readonly pointer: TVec2 | null;

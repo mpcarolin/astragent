@@ -30,19 +30,17 @@ export function reducer(state: TState, action: TAction): TState {
 
     case EActionKind.Focus: {
       const { kind, ...focus } = action;
-      return { ...state, focus, rate: 0 };
+      return { ...state, focus };
     }
-
-    case EActionKind.FocusRelease:
-      return { ...state, focus: null, rate: INITIAL_RATE };
 
     case EActionKind.PointerDown:
       return { ...state, pointer: { x: action.x, y: action.y } };
 
     case EActionKind.PointerMove:
-      if (!state.pointer) return state;
-      if (!dragged(state.pointer, action)) return state;
-      return { ...state, pointer: null, focus: null };
+      if (!state.pointer || !dragged(state.pointer, action)) {
+        return state;
+      }
+      return { ...state, pointer: null };
 
     case EActionKind.PointerUp: {
       const clicked =

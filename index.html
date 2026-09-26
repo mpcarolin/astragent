@@ -71,6 +71,45 @@
     .label:hover {
       color: #ffffff;
     }
+
+    .bubble {
+      max-width: min(18rem, 40vw);
+      padding: 0.6rem 1.75rem 0.6rem 0.75rem;
+      font: 11px ui-monospace, SFMono-Regular, Menlo, monospace;
+      letter-spacing: 0.08em;
+      color: #cfd8ea;
+      background: rgba(10, 14, 26, 0.75);
+      border: 1px solid rgba(207, 216, 234, 0.35);
+      border-radius: 0.25rem;
+      pointer-events: none;
+    }
+
+    .bubble h2 {
+      margin: 0 0 0.35rem;
+      font: inherit;
+      font-size: 1.1em;
+      color: #ffffff;
+    }
+
+    .bubble p {
+      margin: 0;
+      line-height: 1.4;
+    }
+
+    .bubble button {
+      position: absolute;
+      top: 0.25rem;
+      right: 0.4rem;
+      border: none;
+      background: none;
+      color: inherit;
+      font: inherit;
+      font-size: 1rem;
+      line-height: 1;
+      cursor: pointer;
+      padding: 0;
+      pointer-events: auto;
+    }
   </style>
 </head>
 

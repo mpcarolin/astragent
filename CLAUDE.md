@@ -12,14 +12,16 @@ Research: `docs/research/`. Terms: `docs/definitions.md`.
 ## Code rules
 
 - One exported function per file, file named exactly after it, two words at most.
-  `types/`, `constants/`, `data/jpl/planets.ts`, `data/jpl/types.ts`, `data/solar.ts`, and
-  `scene/appearance.ts` hold data or types and are the only exceptions.
+  `types/`, `constants/`, `data/jpl/planets.ts`, `data/jpl/types.ts`, `data/solar.ts`,
+  `data/descriptions.ts`, and `scene/appearance.ts` hold data or types and are the only
+  exceptions.
 - No comments in code I write. The one marker allowed in my code is a stub body of
   `throw new Error("TODO(human)")`. This doesn't bind code the owner writes themselves.
 - Functional: plain inputs in, value out. The only mutation sites are `scene/update.ts`,
-  `scene/resize.ts`, `scene/focus.ts`, `scene/reveal.ts`, `scene/updateHud.ts`,
-  `scene/hmr.ts`, and the frame loop in `main.ts`. `state/queue.ts` owns the one mutable
-  buffer (the action queue) and is the one file allowed two exports.
+  `scene/resize.ts`, `scene/focus.ts`, `scene/updateLabels.ts`, `scene/hideOccluded.ts`,
+  `scene/updateHud.ts`, `scene/hmr.ts`, `scene/placeBubble.ts`, and the frame loop in
+  `main.ts`. `state/queue.ts`
+  owns the one mutable buffer (the action queue) and is the one file allowed two exports.
 - three.js is imported only under `scene/` and in `types/handles.ts` (type-only).
 - Units: AU, radians, Julian date numbers. Degrees exist only inside `data/jpl/`.
 - Every tunable number lives in `src/constants/`, never inline.
@@ -27,6 +29,10 @@ Research: `docs/research/`. Terms: `docs/definitions.md`.
 - Types are prefixed `T`, enums `E`. `TVec3`, `TBody`, `EBodyKind`.
 - Every object shape gets its own named type. No inline object literals in a signature,
   and no anonymous members inside a union — each arm is a named type of its own.
+- A function with four or more parameters takes a single object parameter instead, and
+  destructures it on the first line of its body, not in the signature. Name its type
+  `T<Function>Params` and declare it, unexported, in the function's own file. It moves to
+  `types/` only if another file needs it.
 - `import type` statements come first in a file's import list, as one group, separated
   from value imports by a blank line.
 - Every `if` body goes in curly braces, even a one-liner.

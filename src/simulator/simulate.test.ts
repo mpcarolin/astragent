@@ -1,12 +1,13 @@
-import { describe, expect, it } from "vitest";
-
 import type { TBody } from "../types/body";
 import type { TKeplerianElements } from "../types/elements";
 import type { TState } from "../types/state";
 
+import { describe, expect, it } from "vitest";
+
 import { EBodyKind } from "../types/body";
 
 import { J2000 } from "../constants/astronomy";
+import { START_POSITION } from "../constants/camera";
 import { solar } from "../data/solar";
 import { propagate } from "./propagate";
 import { simulate } from "./simulate";
@@ -21,7 +22,17 @@ const fixed = (elements: Partial<TKeplerianElements>): TKeplerianElements => ({
   ...elements,
 });
 
-const at = (date: number): TState => ({ date, rate: 0, focus: null, pointer: null });
+const at = (date: number): TState => ({
+  date,
+  rate: 0,
+  focus: {
+    targetId: "sun",
+    startedAt: 0,
+    from: START_POSITION,
+    fromTarget: { x: 0, y: 0, z: 0 },
+  },
+  pointer: null,
+});
 
 const sun: TBody = { kind: EBodyKind.Star, id: "sun", name: "Sun" };
 

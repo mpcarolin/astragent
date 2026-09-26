@@ -2,15 +2,18 @@ import type { TVec3 } from "../types/vec3";
 
 import { ELEVATION, MIN_APPROACH, PHASE_ANGLE, ZOOM_FACTOR } from "../constants/focus";
 
+type TVantageParams = {
+  readonly planet: TVec3;
+  readonly sun: TVec3;
+  readonly radius: number;
+  readonly phase?: number;
+  readonly elevation?: number;
+};
+
 const SUNWARD_FALLBACK: TVec3 = { x: -1, y: 0, z: 0 };
 
-export function vantage(
-  planet: TVec3,
-  sun: TVec3,
-  radius: number,
-  phase: number = PHASE_ANGLE,
-  elevation: number = ELEVATION,
-): TVec3 {
+export function vantage(params: TVantageParams): TVec3 {
+  const { planet, sun, radius, phase = PHASE_ANGLE, elevation = ELEVATION } = params;
   const toSun = {
     x: sun.x - planet.x,
     y: sun.y - planet.y,

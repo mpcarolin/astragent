@@ -10,6 +10,7 @@ export function createControls(
   const controls = new OrbitControls(camera, canvas);
   controls.enableDamping = true;
   controls.dampingFactor = DAMPING;
+  controls.enablePan = false;
   controls.minDistance = MIN_DISTANCE;
   controls.maxDistance = MAX_DISTANCE;
   controls.target.set(0, 0, 0);

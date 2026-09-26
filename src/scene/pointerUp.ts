@@ -7,12 +7,15 @@ import { EActionKind } from "../types/action";
 import { focusAction } from "./focusAction";
 import { pick } from "./pick";
 
-export function pointerUp(
-  event: PointerEvent,
-  camera: PerspectiveCamera,
-  controls: OrbitControls,
-  meshes: ReadonlyMap<string, Mesh>,
-): TPointerUpAction {
+type TPointerUpParams = {
+  readonly event: PointerEvent;
+  readonly camera: PerspectiveCamera;
+  readonly controls: OrbitControls;
+  readonly meshes: ReadonlyMap<string, Mesh>;
+};
+
+export function pointerUp(params: TPointerUpParams): TPointerUpAction {
+  const { event, camera, controls, meshes } = params;
   const hit = pick(event, camera, meshes);
 
   if (!hit) {

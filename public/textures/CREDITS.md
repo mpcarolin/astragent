@@ -27,7 +27,10 @@ Simulator at JPL, and the Celestia Motherlode.
 | `2k_uranus.jpg` | Uranus |
 | `2k_neptune.jpg` | Neptune |
 | `2k_saturn_ring_alpha.png` | Saturn, rings |
+| `8k_stars.jpg` | Background star field |
 
 Each planet map is 2048 x 1024, equirectangular, and is sampled as an sRGB colour map.
+The star map is 8192 x 4096, equirectangular, and is sampled as an sRGB panorama for the
+scene background.
 The ring map is 2048 x 125 RGBA: a radial strip, inner edge on the left, outer edge on the
 right, with transparency in its alpha channel.

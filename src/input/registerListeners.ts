@@ -26,8 +26,14 @@ export function registerListeners(handles: TListeners): void {
   });
 
   window.addEventListener("keydown", (event) => {
+    if (event.repeat) {
+      return;
+    }
     if (event.key === " " || event.code === "Space") {
       dispatch({ kind: EActionKind.ToggleRate });
+    }
+    if (event.key === "Escape") {
+      dispatch(focusAction(null, camera, controls));
     }
   });
 
@@ -43,8 +49,6 @@ export function registerListeners(handles: TListeners): void {
   });
 
   canvas.addEventListener("pointerup", (event) => {
-    dispatch(pointerUp(event, camera, controls, bodies));
+    dispatch(pointerUp({ event, camera, controls, meshes: bodies }));
   });
-
-  canvas.addEventListener("wheel", () => dispatch({ kind: EActionKind.FocusRelease }));
 }

@@ -103,7 +103,7 @@ src/
     camera.ts             FOV, NEAR, FAR, START_POSITION
     light.ts              INTENSITY, DECAY, COLOR
     scale.ts              DISTANCE_SCALE, RADIUS_SCALE, STAR_RADIUS, SCENE_RADIUS
-    space.ts              backdrop colours, falloff, texture size
+    space.ts              BACKDROP_TEXTURE, the star map file (revised 2026-09-26)
     annotations.ts        orbit-line segments, colour, opacity
     textures.ts           texture folder, anisotropy, the untinted white
     time.ts               DAYS_PER_SECOND, START_DATE (ISO string, or null for now)
@@ -364,24 +364,34 @@ enforceable rule by one. `CLAUDE.md` is updated to match.
 - `createRenderer(canvas)`: `WebGLRenderer` on the `#scene` canvas, antialias on, pixel
   ratio capped at 2, sized to the window. No logarithmic depth buffer.
 - `createScene(solar, orbits)` (revised 2026-09-21): `Scene` whose `background` is the
-  texture from `backdrop()`. A flat black background gave the planets nothing to sit
+  texture from `backdrop(BACKDROP_TEXTURE)`, awaited, and left black if it fails to load
+  (revised 2026-09-26). A flat black background gave the planets nothing to sit
   against. The scene holds no backdrop geometry. This replaces the "background set to
   black" rule. It takes the body list and a `ReadonlyMap` of body id to sampled orbit
   points, rather than importing `data/solar` itself, so that everything three.js-specific
   is encapsulated here while every decision about *what* to draw is made by the caller.
   It builds a mesh per body, adds an orbit line per entry in `orbits`, and adds the lights.
-- `backdrop()` (added 2026-09-21): a `DataTexture` of `BACKDROP_WIDTH` × `BACKDROP_HEIGHT`
-  on `EquirectangularReflectionMapping`, used as `scene.background`. Each row is one
-  latitude, blending `BACKDROP_ECLIPTIC_COLOR` toward `BACKDROP_POLE_COLOR` by
-  `|1 − 2·latitude|` raised to `BACKDROP_FALLOFF`: a faint violet band around the ecliptic
-  falling to deep indigo at the poles. All five values are in `constants/space.ts`. The
-  blend happens in three.js's linear working space and is converted back to sRGB before the
-  bytes are written, because the texture is tagged `SRGBColorSpace`; skipping that step
-  darkens the result to near black. It is built once at startup and never touched per frame.
+- `backdrop(file)` (revised 2026-09-26; it was a generated indigo-to-violet gradient
+  `DataTexture`): loads `file` through `loadTexture` and, if it loads, sets
+  `EquirectangularReflectionMapping`, which tells the renderer to convert the panorama to a
+  cubemap once and sample it by view direction as `scene.background`. It returns `null` when
+  the load fails, as `loadTexture` does. The file is Solar System Scope's `8k_stars.jpg`,
+  8192 × 4096 equirectangular, named by `BACKDROP_TEXTURE` in `constants/space.ts`; the 8k
+  size keeps single stars sharp at the 50° FOV. The file is a parameter, as in
+  `createStar(look)`, so the null path is testable through the same `vi.mock` of
+  `loadTexture`. The sRGB tag and anisotropy come from `loadTexture`. It is loaded once at
+  startup and never touched per frame.
+
+  The star map is decoration and is not aligned to the real sky. Solar System Scope's
+  `8k_stars_milky_way.jpg` was tried first, to be tilted by the obliquity into the ecliptic
+  frame, but it turned out to be drawn in galactic coordinates with galactic south at the
+  top, a mirror image, so real alignment would need a flip plus a full galactic-to-ecliptic
+  rotation. It was set aside in favour of the plain star field, where orientation barely
+  shows.
 
   A backdrop sphere was tried first and rejected. `scene.background` is rendered by the
   renderer without a projection, so nothing can be clipped or occluded at any camera
-  distance, and the gradient stays fixed to the ecliptic because the texture is sampled by
+  distance, and the star field stays fixed to the ecliptic because the texture is sampled by
   world direction, not by camera orientation. Scene geometry cannot do this here: a
   world-anchored sphere must satisfy radius + `MAX_DISTANCE` < `FAR`, which with
   `MAX_DISTANCE` 400 and `FAR` 500 leaves under 100 units — smaller than Neptune's orbit at
@@ -1014,8 +1024,9 @@ none is required.
   succeeds.
 - The mutation pass is reported: each function broken once, its test red.
 - `pnpm dev` shows the sun and eight planets orbiting at true distances, lit from the sun
-  with dim (not black) night sides, against the graded indigo-to-violet backdrop, stable at
-  every reachable camera distance (revised 2026-09-21; it was a black background), with
+  with dim (not black) night sides, against the star map backdrop, stable at every
+  reachable camera distance (revised 2026-09-26; it was a black background, then a graded
+  indigo-to-violet one), with
   drag-to-orbit and
   scroll-to-zoom.
 - Eight faint grey-blue closed ellipses are visible (added 2026-09-21), nested and

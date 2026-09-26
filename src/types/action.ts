@@ -4,7 +4,6 @@ export enum EActionKind {
   Tick = "tick",
   Rate = "rate",
   Focus = "focus",
-  FocusRelease = "release",
   PointerDown = "pointerDown",
   PointerMove = "pointerMove",
   PointerUp = "pointerUp",
@@ -18,10 +17,6 @@ export type TTickAction = {
 
 export type TFocusAction = TFocus & {
   readonly kind: EActionKind.Focus;
-};
-
-export type TReleaseAction = {
-  readonly kind: EActionKind.FocusRelease;
 };
 
 export type TPointerDownAction = {
@@ -59,7 +54,6 @@ export type TAction =
   | TRateAction
   | TToggleRateAction
   | TFocusAction
-  | TReleaseAction
   | TPointerDownAction
   | TPointerMoveAction
   | TPointerUpAction;

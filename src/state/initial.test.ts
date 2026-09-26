@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { START_POSITION } from "../constants/camera";
+import { DURATION_MS } from "../constants/focus";
 import { INITIAL_RATE } from "../constants/time";
 import { initial } from "./initial";
 
@@ -20,8 +22,26 @@ describe("initial", () => {
     expect(initial(new Date()).rate).toBe(INITIAL_RATE);
   });
 
-  it("starts with no focus", () => {
-    expect(initial(new Date()).focus).toBeNull();
+  it("starts at the overview, focused on no body", () => {
+    expect(initial(new Date()).focus.targetId).toBeNull();
+  });
+
+  it("starts with focus already complete at every performance.now() at or after zero", () => {
+    const { focus } = initial(new Date());
+    expect(0 - focus.startedAt).toBeGreaterThanOrEqual(DURATION_MS);
+  });
+
+  it("survives HMR's JSON round-trip unchanged", () => {
+    const { focus } = initial(new Date());
+    expect(JSON.parse(JSON.stringify(focus))).toEqual(focus);
+  });
+
+  it("starts the flight from the opening overview", () => {
+    expect(initial(new Date()).focus.from).toEqual(START_POSITION);
+  });
+
+  it("starts the flight target at the origin", () => {
+    expect(initial(new Date()).focus.fromTarget).toEqual({ x: 0, y: 0, z: 0 });
   });
 
   it("starts with the pointer up", () => {

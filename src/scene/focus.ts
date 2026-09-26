@@ -6,38 +6,54 @@ import type { TState } from "../types/state";
 import { EBodyKind } from "../types/body";
 
 import { Vector3 } from "three";
+import { MIN_DISTANCE, ZOOM_FLOOR } from "../constants/controls";
 import { DURATION_MS } from "../constants/focus";
-import { DISTANCE_SCALE } from "../constants/scale";
 import { ease } from "../utils/ease";
-import { vantage } from "../utils/vantage";
+import { isFocusComplete } from "../utils/isFocusComplete";
 import { appearance } from "./appearance";
-import { radius } from "./radius";
+import { destination } from "./destination";
+import { extent } from "./extent";
+import { overview } from "./overview";
 import { toScene } from "./toScene";
+
+type TFocusParams = {
+  readonly state: TState;
+  readonly located: readonly TLocated[];
+  readonly camera: PerspectiveCamera;
+  readonly controls: OrbitControls;
+  readonly now: number;
+  readonly previous: number;
+};
 
 const origin = new Vector3();
 const originTarget = new Vector3();
+const delta = new Vector3();
 
-export function focus(
-  state: TState,
-  located: readonly TLocated[],
-  camera: PerspectiveCamera,
-  controls: OrbitControls,
-  now: number,
-): void {
+export function focus(params: TFocusParams): void {
+  const { state, located, camera, controls, now, previous } = params;
   const flight = state.focus;
-  if (!flight) return;
 
-  const target = located.find(({ body }) => body.id === flight.targetId);
   const star = located.find(({ body }) => body.kind === EBodyKind.Star);
-  const look = appearance[flight.targetId];
-  if (!target || !star || !look) return;
+  const target =
+    flight.targetId === null ? star : located.find(({ body }) => body.id === flight.targetId);
+  const look = target && appearance[target.body.id];
+  if (!target || !star || !look) {
+    return;
+  }
 
-  const standoff = radius(look.radiusKm) / DISTANCE_SCALE;
+  controls.minDistance = Math.max(MIN_DISTANCE, extent(target.body, look) * ZOOM_FLOOR);
+
+  if (isFocusComplete(flight, previous) && isFocusComplete(flight, now)) {
+    delta.copy(toScene(target.position)).sub(controls.target);
+    camera.position.add(delta);
+    controls.target.add(delta);
+    return;
+  }
+
   const k = ease(Math.min(1, (now - flight.startedAt) / DURATION_MS));
-
   camera.position.lerpVectors(
     origin.set(flight.from.x, flight.from.y, flight.from.z),
-    toScene(vantage(target.position, star.position, standoff)),
+    flight.targetId === null ? overview(star) : destination(target, star, look),
     k,
   );
   controls.target.lerpVectors(

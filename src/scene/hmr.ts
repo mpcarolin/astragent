@@ -18,9 +18,6 @@ function copy({ x, y, z }: TVec3): TVec3 {
 }
 
 function shift(state: TState, by: number): TState {
-  if (!state.focus) {
-    return state;
-  }
   return { ...state, focus: { ...state.focus, startedAt: state.focus.startedAt + by } };
 }
 
