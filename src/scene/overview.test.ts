@@ -19,7 +19,9 @@ const sun = () => {
 describe("overview", () => {
   it("sits at the opening overview position for a sun at the origin", () => {
     const star: TLocated = { body: sun(), position: { x: 0, y: 0, z: 0 } };
-    expect(overview(star).equals(new Vector3(0, 150, 0))).toBe(true);
+    expect(
+      overview(star).equals(new Vector3(START_POSITION.x, START_POSITION.y, START_POSITION.z)),
+    ).toBe(true);
   });
 
   it("keeps the overview relative to wherever the sun is", () => {
