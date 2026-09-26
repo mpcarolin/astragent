@@ -16,7 +16,7 @@ import { extent } from "./extent";
 import { overview } from "./overview";
 import { toScene } from "./toScene";
 
-type TFocusParams = {
+type TAnimateFocusParams = {
   readonly state: TState;
   readonly located: readonly TLocated[];
   readonly camera: PerspectiveCamera;
@@ -29,7 +29,7 @@ const origin = new Vector3();
 const originTarget = new Vector3();
 const delta = new Vector3();
 
-export function focus(params: TFocusParams): void {
+export function animateFocus(params: TAnimateFocusParams): void {
   const { state, located, camera, controls, now, previous } = params;
   const flight = state.focus;
 

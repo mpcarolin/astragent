@@ -6,7 +6,7 @@ import { PLANET_NAMES } from "../constants/input";
 import { resize } from "../scene/resize";
 import { dispatch } from "../state/queue";
 import { pointerUp } from "../scene/pointerUp";
-import { focusAction } from "../scene/focusAction";
+import { createFocusAction } from "../scene/createFocusAction";
 
 export function registerListeners(handles: TListeners): void {
   const { canvas, camera, controls, bodies, renderer, labelRenderer } = handles;
@@ -21,7 +21,7 @@ export function registerListeners(handles: TListeners): void {
       const body = bodies.get(name);
       if (!body) return;
 
-      dispatch(focusAction(name, camera, controls));
+      dispatch(createFocusAction(name, camera, controls));
     }
   });
 
@@ -33,7 +33,7 @@ export function registerListeners(handles: TListeners): void {
       dispatch({ kind: EActionKind.ToggleRate });
     }
     if (event.key === "Escape") {
-      dispatch(focusAction(null, camera, controls));
+      dispatch(createFocusAction(null, camera, controls));
     }
   });
 

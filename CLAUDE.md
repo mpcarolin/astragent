@@ -17,7 +17,7 @@ Research: `docs/research/`. Terms: `docs/definitions.md`.
   exceptions.
 - No comments in code I write. The one marker allowed in my code is a stub body of
   `throw new Error("TODO(human)")`. This doesn't bind code the owner writes themselves.
-- Functional: plain inputs in, value out. The only mutation sites are `scene/update.ts`,
+- Functional: plain inputs in, value out. The only mutation sites are `scene/updateBodies.ts`,
   `scene/resize.ts`, `scene/focus.ts`, `scene/updateLabels.ts`, `scene/hideOccluded.ts`,
   `scene/updateHud.ts`, `scene/hmr.ts`, `scene/placeBubble.ts`, and the frame loop in
   `main.ts`. `state/queue.ts`

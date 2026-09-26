@@ -14,7 +14,7 @@ import { solar } from "../data/solar";
 import { appearance } from "./appearance";
 import { destination } from "./destination";
 import { extent } from "./extent";
-import { focus } from "./focus";
+import { animateFocus } from "./animateFocus";
 import { toScene } from "./toScene";
 
 const TOLERANCE = 1e-9;
@@ -73,11 +73,11 @@ const flying = { now: midway, previous: midway - 16 };
 const stalled = { now: STARTED + 10 * DURATION_MS, previous: midway };
 const following = { now: landing + 16, previous: landing };
 
-describe("focus", () => {
+describe("animateFocus", () => {
   it("starts the flight exactly where the camera and target were", () => {
     const { camera, controls } = rig();
 
-    focus({ state: stateOf("earth"), located, camera, controls, ...starting });
+    animateFocus({ state: stateOf("earth"), located, camera, controls, ...starting });
 
     expect(camera.position.distanceTo(new Vector3(FROM.x, FROM.y, FROM.z))).toBe(0);
     expect(controls.target.distanceTo(new Vector3())).toBe(0);
@@ -88,7 +88,7 @@ describe("focus", () => {
     const end = destination(earth, sun, lookOf("earth"));
     const halfway = new Vector3(FROM.x, FROM.y, FROM.z).add(end).multiplyScalar(0.5);
 
-    focus({ state: stateOf("earth"), located, camera, controls, ...flying });
+    animateFocus({ state: stateOf("earth"), located, camera, controls, ...flying });
 
     expect(camera.position.distanceTo(halfway)).toBeLessThan(TOLERANCE);
     const halfTarget = toScene(earth.position).multiplyScalar(0.5);
@@ -100,7 +100,7 @@ describe("focus", () => {
     const now = STARTED + DURATION_MS / 4;
     const sixteenth = toScene(earth.position).multiplyScalar(1 / 16);
 
-    focus({ state: stateOf("earth"), located, camera, controls, now, previous: now - 16 });
+    animateFocus({ state: stateOf("earth"), located, camera, controls, now, previous: now - 16 });
 
     expect(controls.target.distanceTo(sixteenth)).toBeLessThan(TOLERANCE);
   });
@@ -108,7 +108,7 @@ describe("focus", () => {
   it("points the camera at the target during the flight", () => {
     const { camera, controls } = rig();
 
-    focus({ state: stateOf("earth"), located, camera, controls, ...flying });
+    animateFocus({ state: stateOf("earth"), located, camera, controls, ...flying });
 
     const facing = camera.getWorldDirection(new Vector3());
     const toTarget = controls.target.clone().sub(camera.position).normalize();
@@ -119,7 +119,7 @@ describe("focus", () => {
     const { camera, controls } = rig();
     const end = destination(earth, sun, lookOf("earth"));
 
-    focus({ state: stateOf("earth"), located, camera, controls, ...stalled });
+    animateFocus({ state: stateOf("earth"), located, camera, controls, ...stalled });
 
     expect(camera.position.distanceTo(end)).toBeLessThan(TOLERANCE);
     expect(controls.target.distanceTo(toScene(earth.position))).toBeLessThan(TOLERANCE);
@@ -129,7 +129,7 @@ describe("focus", () => {
     const { camera, controls } = rig({ x: 3, y: 4, z: 5 }, { x: 1, y: 0, z: 0 });
     const moved = locate("earth", { x: 0.2, y: 0, z: 0 });
 
-    focus({
+    animateFocus({
       state: stateOf("earth"),
       located: [sun, moved],
       camera,
@@ -145,7 +145,7 @@ describe("focus", () => {
     const { camera, controls } = rig({ x: 5, y: 5, z: 5 }, { x: 10, y: 0, z: 0 });
     const overview = new Vector3(START_POSITION.x, START_POSITION.y, START_POSITION.z);
 
-    focus({ state: stateOf(null), located, camera, controls, ...stalled });
+    animateFocus({ state: stateOf(null), located, camera, controls, ...stalled });
 
     expect(camera.position.distanceTo(overview)).toBeLessThan(TOLERANCE);
     expect(controls.target.distanceTo(new Vector3())).toBeLessThan(TOLERANCE);
@@ -154,7 +154,7 @@ describe("focus", () => {
   it("sets the zoom floor outside the target's rings even in flight", () => {
     const { camera, controls } = rig();
 
-    focus({ state: stateOf("saturn"), located, camera, controls, ...flying });
+    animateFocus({ state: stateOf("saturn"), located, camera, controls, ...flying });
 
     const floor = extent(saturn.body, lookOf("saturn")) * ZOOM_FLOOR;
     expect(controls.minDistance).toBeCloseTo(floor, 12);
@@ -166,7 +166,7 @@ describe("focus", () => {
     const target = controls.target.clone();
     const floor = controls.minDistance;
 
-    focus({ state: stateOf("vulcan"), located, camera, controls, ...flying });
+    animateFocus({ state: stateOf("vulcan"), located, camera, controls, ...flying });
 
     expect(camera.position.equals(position)).toBe(true);
     expect(controls.target.equals(target)).toBe(true);

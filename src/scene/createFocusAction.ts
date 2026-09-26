@@ -4,7 +4,7 @@ import type { TFocusAction } from "../types/action";
 
 import { EActionKind } from "../types/action";
 
-export function focusAction(
+export function createFocusAction(
   targetId: string | null,
   camera: PerspectiveCamera,
   controls: OrbitControls,

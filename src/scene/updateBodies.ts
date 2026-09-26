@@ -3,7 +3,7 @@ import type { TLocated } from "../types/located";
 
 import { toScene } from "./toScene";
 
-export function update(meshes: ReadonlyMap<string, Mesh>, located: readonly TLocated[]): void {
+export function updateBodies(meshes: ReadonlyMap<string, Mesh>, located: readonly TLocated[]): void {
   located.forEach(({ body, position }) => {
     const mesh = meshes.get(body.id);
     if (!mesh) return;

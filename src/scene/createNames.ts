@@ -5,7 +5,7 @@ import type { TBody } from "../types/body";
 import { CSS2DObject } from "three/addons/renderers/CSS2DRenderer.js";
 import { LABEL_CLASS } from "../constants/labels";
 import { dispatch } from "../state/queue";
-import { focusAction } from "./focusAction";
+import { createFocusAction } from "./createFocusAction";
 
 type TCreateNamesParams = {
   readonly bodies: readonly TBody[];
@@ -29,7 +29,7 @@ export function createNames(params: TCreateNamesParams): ReadonlyMap<string, CSS
       element.dataset.bodyId = body.id;
       element.textContent = body.name;
       element.addEventListener("click", () =>
-        dispatch(focusAction(body.id, camera, controls)),
+        dispatch(createFocusAction(body.id, camera, controls)),
       );
 
       const name = new CSS2DObject(element);

@@ -4,7 +4,7 @@ import type { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { CSS2DObject } from "three/addons/renderers/CSS2DRenderer.js";
 import { BUBBLE_CLASS } from "../constants/bubble";
 import { dispatch } from "../state/queue";
-import { focusAction } from "./focusAction";
+import { createFocusAction } from "./createFocusAction";
 
 export function createBubble(
   scene: Scene,
@@ -20,7 +20,7 @@ export function createBubble(
   button.type = "button";
   button.setAttribute("aria-label", "Back to overview");
   button.textContent = "×";
-  button.addEventListener("click", () => dispatch(focusAction(null, camera, controls)));
+  button.addEventListener("click", () => dispatch(createFocusAction(null, camera, controls)));
 
   element.append(heading, text, button);
 

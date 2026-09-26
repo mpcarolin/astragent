@@ -2,15 +2,15 @@ import type { TState } from "./types/state";
 
 import { EActionKind } from "./types/action";
 
+import { hmr } from "./scene/hmr";
+import { animateFocus } from "./scene/animateFocus";
 import { createCamera } from "./scene/createCamera";
 import { createControls } from "./scene/createControls";
 import { createLabelRenderer } from "./scene/createLabelRenderer";
 import { createLabels } from "./scene/createLabels";
 import { createRenderer } from "./scene/createRenderer";
 import { createScene } from "./scene/createScene";
-import { focus } from "./scene/focus";
-import { hmr } from "./scene/hmr";
-import { update } from "./scene/update";
+import { updateBodies } from "./scene/updateBodies";
 import { updateHud } from "./scene/updateHud";
 import { updateLabels } from "./scene/updateLabels";
 import { registerListeners } from "./input/registerListeners";
@@ -56,16 +56,30 @@ function loop(state: TState, previous: number) {
     );
     const located = simulate(solar, next);
 
-    update(bodies, located);
-
+    updateLabels({
+      labels,
+      state: next,
+      located,
+      meshes: bodies,
+      camera,
+      now: timestamp
+    });
+    updateBodies(bodies, located);
     if (hud) {
       updateHud(hud, camera, state);
     }
 
     controls.enabled = isFocusComplete(next.focus, timestamp);
     controls.update();
-    focus({ state: next, located, camera, controls, now: timestamp, previous });
-    updateLabels({ labels, state: next, located, meshes: bodies, camera, now: timestamp });
+
+    animateFocus({
+      state: next,
+      located, camera,
+      controls,
+      now: timestamp,
+      previous
+    });
+
     renderer.render(scene, camera);
     labelRenderer.render(scene, camera);
 
